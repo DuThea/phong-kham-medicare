@@ -281,7 +281,7 @@
             let loadedCount = 0;
 
             collections.forEach(colName => {
-                const colRef = collection(db, 'artifacts', appId, 'users', uid, colName);
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', colName);
                 onSnapshot(colRef, (snapshot) => {
                     window.DB[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     
@@ -315,14 +315,14 @@
         async function saveToFirebase(collectionName, dataObj, customId = null) {
             if(!currentUserId) return;
             const id = customId || `${collectionName.charAt(0).toUpperCase()}${Date.now()}`;
-            const ref = doc(db, 'artifacts', appId, 'users', currentUserId, collectionName, id);
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', collectionName, id);
             await setDoc(ref, dataObj);
             return id;
         }
 
         async function deleteFromFirebase(collectionName, id) {
             if(!currentUserId) return;
-            const ref = doc(db, 'artifacts', appId, 'users', currentUserId, collectionName, id);
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', collectionName, id);
             await deleteDoc(ref);
         }
 
