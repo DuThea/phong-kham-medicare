@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hệ Thống Quản Lý Bệnh Nhân - EMR Pro Cloud</title>
+    <title>Hệ Thống Quản Lý Bệnh Nhân - EMR Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -12,7 +12,9 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { primary: '#0d9488', secondary: '#0f766e', accent: '#f43f5e', surface: '#f8fafc' }
+                    colors: {
+                        primary: '#0d9488', secondary: '#0f766e', accent: '#f43f5e', surface: '#f8fafc', 
+                    }
                 }
             }
         }
@@ -32,19 +34,18 @@
         @media (max-width: 768px) { .action-group { opacity: 1; } }
         .hover-reveal-container:hover .action-group { opacity: 1; }
         .filter-pill.active { background-color: #0d9488; color: white; border-color: #0d9488; }
-        
-        /* Loading Screen overlay */
-        #app-loader { transition: opacity 0.3s; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-slate-800 relative">
 
-    <!-- Loading Screen -->
-    <div id="app-loader" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center">
-        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-4"></i>
-        <p class="text-slate-600 font-medium">Đang kết nối cơ sở dữ liệu Cloud...</p>
+    <!-- Màn hình Loading khi đang kết nối Cloud -->
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-50 z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <i class="fa-solid fa-circle-notch fa-spin text-primary text-5xl mb-4"></i>
+        <h2 class="text-xl font-bold text-slate-800 mb-1">MediCare Pro</h2>
+        <p class="text-slate-500 font-medium text-sm">Đang đồng bộ dữ liệu đám mây...</p>
     </div>
 
+    <!-- UI GIỮ NGUYÊN HOÀN TOÀN TỪ MÃ CỦA BẠN -->
     <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden" onclick="ui.closeSidebar()"></div>
 
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out bg-white border-r border-slate-200 flex flex-col shadow-2xl md:shadow-sm">
@@ -65,7 +66,7 @@
         </nav>
         <div class="p-4 border-t border-slate-100">
             <button onclick="app.openAddPatient()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                <i class="fa-solid fa-plus"></i> Thêm Bệnh Nhân
+                <i class="fa-solid fa-plus"></i> Thêm Bệnh Nhân Nhanh
             </button>
         </div>
     </aside>
@@ -86,8 +87,8 @@
         <div id="view-patient-detail" class="view-section p-0 overflow-y-auto h-full fade-in hidden"></div>
     </main>
 
-    <!-- Modals (Bệnh nhân, Lượt Khám, Thuốc, Lịch hẹn, Hóa đơn, Xác nhận) -->
-    <!-- (Giữ nguyên cấu trúc HTML của các Modal từ phiên bản trước) -->
+    <!-- Modals -->
+    <!-- Modal Thêm/Sửa Bệnh Nhân -->
     <div id="modal-patient" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg modal-enter overflow-hidden flex flex-col max-h-full">
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
@@ -98,19 +99,49 @@
                 <form id="form-patient" class="space-y-4">
                     <input type="hidden" id="inp_p_id">
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Mã BN <span class="text-rose-500">*</span></label><input type="text" id="inp_p_code" required placeholder="Vd: BN0001" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></div>
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Họ và Tên <span class="text-rose-500">*</span></label><input type="text" id="inp_p_name" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Mã BN <span class="text-rose-500">*</span></label>
+                            <input type="text" id="inp_p_code" required placeholder="Vd: BN0001" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Họ và Tên <span class="text-rose-500">*</span></label>
+                            <input type="text" id="inp_p_name" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base">
+                        </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Giới tính</label><select id="inp_p_gender" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Ngày sinh</label><input type="date" id="inp_p_dob" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Giới tính</label>
+                            <select id="inp_p_gender" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                                <option value="Nam">Nam</option><option value="Nữ">Nữ</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Ngày sinh</label>
+                            <input type="date" id="inp_p_dob" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                        </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label><input type="tel" id="inp_p_phone" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></div>
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Nhóm máu</label><select id="inp_p_blood" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"><option value="Chưa rõ">Chưa rõ</option><option value="A+">A+</option><option value="B+">B+</option><option value="O+">O+</option><option value="AB+">AB+</option></select></div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
+                            <input type="tel" id="inp_p_phone" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nhóm máu</label>
+                            <select id="inp_p_blood" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                                <option value="Chưa rõ">Chưa rõ</option><option value="A+">A+</option><option value="B+">B+</option><option value="O+">O+</option><option value="AB+">AB+</option>
+                            </select>
+                        </div>
                     </div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Chẩn đoán nền</label><input type="text" id="inp_p_diag" placeholder="Vd: Tăng huyết áp..." class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Phân loại Rủi ro</label><select id="inp_p_risk" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"><option value="Low">Low (An toàn)</option><option value="Medium">Medium (Trung bình)</option><option value="High">High (Nguy cơ cao)</option></select></div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Chẩn đoán nền</label>
+                        <input type="text" id="inp_p_diag" placeholder="Vd: Tăng huyết áp..." class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Phân loại Rủi ro</label>
+                        <select id="inp_p_risk" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                            <option value="Low">Low (An toàn)</option><option value="Medium">Medium (Trung bình)</option><option value="High">High (Nguy cơ cao)</option>
+                        </select>
+                    </div>
                 </form>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
@@ -120,7 +151,7 @@
         </div>
     </div>
 
-    <!-- Modal Lượt Khám -->
+    <!-- Modal Thêm/Sửa Lượt Khám -->
     <div id="modal-visit" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg modal-enter overflow-hidden flex flex-col max-h-full">
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-teal-50 shrink-0">
@@ -130,20 +161,32 @@
             <div class="p-6 overflow-y-auto">
                 <form id="form-visit" class="space-y-4">
                     <input type="hidden" id="inp_v_id">
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Ngày Khám</label><input type="date" id="inp_v_date" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 text-base"></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Lý do khám <span class="text-rose-500">*</span></label><textarea id="inp_v_complaint" rows="2" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></textarea></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Đánh giá lâm sàng</label><textarea id="inp_v_assessment" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></textarea></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Kế hoạch điều trị</label><textarea id="inp_v_plan" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></textarea></div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Ngày Khám</label>
+                        <input type="date" id="inp_v_date" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Lý do khám (Chief Complaint) <span class="text-rose-500">*</span></label>
+                        <textarea id="inp_v_complaint" rows="2" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Đánh giá lâm sàng (Assessment)</label>
+                        <textarea id="inp_v_assessment" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Kế hoạch điều trị (Plan)</label>
+                        <textarea id="inp_v_plan" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-base"></textarea>
+                    </div>
                 </form>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
                 <button onclick="ui.closeModal('modal-visit')" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-100">Hủy</button>
-                <button onclick="app.saveVisit()" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-secondary shadow-sm">Lưu</button>
+                <button onclick="app.saveVisit()" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-secondary shadow-sm">Lưu Phiên Khám</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal Thuốc -->
+    <!-- Modal Thêm/Sửa Đơn Thuốc -->
     <div id="modal-medication" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg modal-enter overflow-hidden flex flex-col max-h-full">
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-purple-50 shrink-0">
@@ -153,13 +196,32 @@
             <div class="p-6 overflow-y-auto">
                 <form id="form-med" class="space-y-4">
                     <input type="hidden" id="inp_m_id">
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Tên Thuốc <span class="text-rose-500">*</span></label><input type="text" id="inp_m_name" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-base"></div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Đường dùng</label><select id="inp_m_route" class="w-full px-3 py-2 border border-slate-300 rounded-md"><option value="Uống">Uống</option><option value="Tiêm">Tiêm</option><option value="Bôi">Bôi</option><option value="Khác">Khác</option></select></div>
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Tần suất</label><input type="text" id="inp_m_freq" class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Tên Thuốc (Hoạt chất) <span class="text-rose-500">*</span></label>
+                        <input type="text" id="inp_m_name" required placeholder="Vd: Amlodipine 5mg" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-base">
                     </div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label><select id="inp_m_status" class="w-full px-3 py-2 border border-slate-300 rounded-md"><option value="Active">Đang dùng</option><option value="Stopped">Đã ngưng</option></select></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Ghi chú</label><input type="text" id="inp_m_note" class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Đường dùng</label>
+                            <select id="inp_m_route" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-base">
+                                <option value="Uống">Uống</option><option value="Tiêm">Tiêm</option><option value="Bôi">Bôi</option><option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Tần suất</label>
+                            <input type="text" id="inp_m_freq" placeholder="Vd: 1 viên Sáng" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-base">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+                        <select id="inp_m_status" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-base">
+                            <option value="Active">Đang dùng</option><option value="Stopped">Đã ngưng</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Ghi chú (Tùy chọn)</label>
+                        <input type="text" id="inp_m_note" placeholder="Vd: Uống sau ăn..." class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-base">
+                    </div>
                 </form>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
@@ -169,7 +231,7 @@
         </div>
     </div>
 
-    <!-- Modal Lịch Hẹn -->
+    <!-- Modal Thêm/Sửa Lịch Hẹn -->
     <div id="modal-appointment" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md modal-enter overflow-hidden flex flex-col max-h-full">
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-blue-50 shrink-0">
@@ -179,19 +241,28 @@
             <div class="p-6 overflow-y-auto">
                 <form id="form-appointment" class="space-y-4">
                     <input type="hidden" id="inp_a_id">
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Bệnh Nhân <span class="text-rose-500">*</span></label><select id="inp_a_patient" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-base"></select></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Ngày Hẹn <span class="text-rose-500">*</span></label><input type="date" id="inp_a_date" required class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Mục đích hẹn</label><input type="text" id="inp_a_purpose" required class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Bệnh Nhân <span class="text-rose-500">*</span></label>
+                        <select id="inp_a_patient" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-base"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Ngày Hẹn <span class="text-rose-500">*</span></label>
+                        <input type="date" id="inp_a_date" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Mục đích hẹn</label>
+                        <input type="text" id="inp_a_purpose" required placeholder="Vd: Tái khám định kỳ..." class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
+                    </div>
                 </form>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
                 <button onclick="ui.closeModal('modal-appointment')" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-100">Hủy</button>
-                <button onclick="app.saveAppointment()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm">Lưu</button>
+                <button onclick="app.saveAppointment()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow-sm">Lưu Lịch Hẹn</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal Hóa Đơn -->
+    <!-- Modal Thêm/Sửa Hóa Đơn -->
     <div id="modal-invoice" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg modal-enter overflow-hidden flex flex-col max-h-full">
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-orange-50 shrink-0">
@@ -201,173 +272,177 @@
             <div class="p-6 overflow-y-auto">
                 <form id="form-invoice" class="space-y-4">
                     <input type="hidden" id="inp_i_id">
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Bệnh Nhân <span class="text-rose-500">*</span></label><select id="inp_i_patient" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none bg-slate-50 text-base"></select></div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Ngày Lập</label><input type="date" id="inp_i_date" required class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
-                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Tổng Tiền (VNĐ) <span class="text-rose-500">*</span></label><input type="number" id="inp_i_amount" required min="0" step="1000" class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Bệnh Nhân <span class="text-rose-500">*</span></label>
+                        <select id="inp_i_patient" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50 text-base"></select>
                     </div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Nội dung thu <span class="text-rose-500">*</span></label><input type="text" id="inp_i_desc" required class="w-full px-3 py-2 border border-slate-300 rounded-md text-base"></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label><select id="inp_i_status" class="w-full px-3 py-2 border border-slate-300 rounded-md"><option value="Unpaid">Chưa thanh toán</option><option value="Paid">Đã thanh toán</option></select></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Ngày Lập</label>
+                            <input type="date" id="inp_i_date" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-base">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Tổng Tiền (VNĐ) <span class="text-rose-500">*</span></label>
+                            <input type="number" id="inp_i_amount" required min="0" step="1000" placeholder="Vd: 500000" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-base">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Nội dung thu <span class="text-rose-500">*</span></label>
+                        <input type="text" id="inp_i_desc" required placeholder="Vd: Phí khám bệnh, xét nghiệm..." class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Trạng thái</label>
+                        <select id="inp_i_status" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-base">
+                            <option value="Unpaid">Chưa thanh toán</option>
+                            <option value="Paid">Đã thanh toán</option>
+                        </select>
+                    </div>
                 </form>
             </div>
             <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
                 <button onclick="ui.closeModal('modal-invoice')" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-100">Hủy</button>
-                <button onclick="app.saveInvoice()" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 shadow-sm">Lưu</button>
+                <button onclick="app.saveInvoice()" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 shadow-sm">Lưu Hóa Đơn</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal Xác nhận -->
+    <!-- Modal Xác nhận Xóa -->
     <div id="modal-confirm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm modal-enter overflow-hidden">
             <div class="p-6 text-center">
-                <div class="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl mx-auto mb-4"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                <h3 id="confirm-title" class="font-bold text-lg text-slate-800 mb-2">Xác nhận xóa</h3>
-                <p id="confirm-msg" class="text-slate-500 text-sm">Hành động này không thể hoàn tác.</p>
+                <div class="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl mx-auto mb-4">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 id="confirm-title" class="font-bold text-lg text-slate-800 mb-2">Xác nhận xóa dữ liệu</h3>
+                <p id="confirm-msg" class="text-slate-500 text-sm">Bạn có chắc chắn muốn xóa bản ghi này? Hành động này không thể hoàn tác.</p>
             </div>
             <div class="px-6 py-4 bg-slate-50 flex justify-center gap-3 border-t border-slate-100">
-                <button onclick="ui.closeModal('modal-confirm')" class="px-6 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-100 font-medium">Hủy</button>
-                <button onclick="app.confirmDelete()" class="px-6 py-2 bg-rose-600 text-white rounded-md hover:bg-rose-700 font-medium">Xóa vĩnh viễn</button>
+                <button onclick="ui.closeModal('modal-confirm')" class="px-6 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-100 transition-colors font-medium">Hủy</button>
+                <button onclick="app.confirmDelete()" class="px-6 py-2 bg-rose-600 text-white rounded-md hover:bg-rose-700 transition-colors shadow-sm font-medium">Xóa vĩnh viễn</button>
             </div>
         </div>
     </div>
 
+    <!-- Toast Notification -->
     <div id="toast-container" class="fixed top-4 right-4 z-[70] flex flex-col gap-2 pointer-events-none w-64 md:w-auto left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0"></div>
 
-    <!-- TÍCH HỢP FIREBASE (Thay thế LocalStorage) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Cấu hình Database (Hệ thống tự động cấp phát khi xem trước, bạn sẽ thay khi tự host)
-        const firebaseConfig = {
-            apiKey: "AIzaSyDAh_SL1pq4gmMKy8zFUn2f6nkHzlkwDkA",
-            authDomain: "medicarepro-8588c.firebaseapp.com",
-            projectId: "medicarepro-8588c", 
-            storageBucket: "medicarepro-8588c.firebasestorage.app",
-            messagingSenderId: "541330848431",
-            appId: "1:541330848431:web:850f7cfd8a631e4cccb25a",
-            measurementId: "G-HQ3B5PZ2XJ"
+    <script>
+        // MÃ JS CHÍNH - LOẠI BỎ LOCALSTORAGE, KHỞI TẠO MẢNG RỖNG CHỜ FIREBASE ĐỔ DỮ LIỆU
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
         };
-        const fbApp = initializeApp(firebaseConfig);
-        const auth = getAuth(fbApp);
-        const db = getFirestore(fbApp);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'medicare-pro';
-        let currentUserId = null;
 
-        // Cơ sở dữ liệu nội bộ (Đồng bộ với Firebase)
-        window.DB = { patients: [], visits: [], appointments: [], medications: [], invoices: [] };
+        // Biến toàn cục chứa Dữ liệu, sẽ được Firebase nhồi vào
+        window.DB = {
+            patients: [], 
+            visits: [], 
+            appointments: [],
+            medications: [],
+            invoices: [] 
+        };
 
-        const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        // Hàm này sẽ bị module Firebase ở bên dưới ghi đè (override)
+        window.saveDB = () => {};
 
-        // Khởi tạo Auth
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+        const aptHelpers = {
+            getBadgeClass: function(status) {
+                switch(status) {
+                    case 'Scheduled': return 'bg-blue-100 text-blue-700 border-blue-200';
+                    case 'Completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                    case 'Missed': return 'bg-rose-100 text-rose-700 border-rose-200';
+                    case 'Cancelled': return 'bg-slate-200 text-slate-600 border-slate-300';
+                    default: return 'bg-slate-100 text-slate-600 border-slate-200';
                 }
-            } catch (error) {
-                console.error("Auth error:", error);
-                document.getElementById('app-loader').innerHTML = '<p class="text-rose-500">Lỗi kết nối máy chủ. Vui lòng thử lại.</p>';
+            },
+            getText: function(status) {
+                switch(status) {
+                    case 'Scheduled': return 'Sắp tới';
+                    case 'Completed': return 'Đã khám';
+                    case 'Missed': return 'Bỏ lỡ';
+                    case 'Cancelled': return 'Đã hủy';
+                    default: return status;
+                }
             }
-        }
+        };
 
-        // Lắng nghe dữ liệu Real-time từ Firebase
-        function setupRealtimeListeners(uid) {
-            const collections = ['patients', 'visits', 'appointments', 'medications', 'invoices'];
-            let loadedCount = 0;
-
-            collections.forEach(colName => {
-                const colRef = collection(db, 'artifacts', appId, 'public', 'data', colName);
-                onSnapshot(colRef, (snapshot) => {
-                    window.DB[colName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    
-                    if (loadedCount < collections.length) {
-                        loadedCount++;
-                        if (loadedCount === collections.length) {
-                            // Dữ liệu tải xong lần đầu
-                            document.getElementById('app-loader').style.opacity = '0';
-                            setTimeout(() => document.getElementById('app-loader').style.display = 'none', 300);
-                            
-                            // Tự động tạo dữ liệu mẫu nếu DB trống
-                            if (window.DB.patients.length === 0) seedFirebaseDatabase(uid);
-                            app.refreshCurrentView();
-                        }
-                    } else {
-                        // Dữ liệu thay đổi sau khi đã tải
-                        app.refreshCurrentView();
-                    }
-                }, (error) => console.error(`Error in ${colName}:`, error));
-            });
-        }
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                setupRealtimeListeners(user.uid);
-            }
-        });
-
-        // Hàm tương tác với Firebase
-        async function saveToFirebase(collectionName, dataObj, customId = null) {
-            if(!currentUserId) return;
-            const id = customId || `${collectionName.charAt(0).toUpperCase()}${Date.now()}`;
-            const ref = doc(db, 'artifacts', appId, 'public', 'data', collectionName, id);
-            await setDoc(ref, dataObj);
-            return id;
-        }
-
-        async function deleteFromFirebase(collectionName, id) {
-            if(!currentUserId) return;
-            const ref = doc(db, 'artifacts', appId, 'public', 'data', collectionName, id);
-            await deleteDoc(ref);
-        }
-
-        async function seedFirebaseDatabase(uid) {
-            ui.showToast("Đang tạo dữ liệu mẫu (Cloud)...", "info");
-            const firstNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm'];
-            const lastNames = ['An', 'Bình', 'Châu', 'Dương', 'Lan', 'Minh'];
-            const diags = ['Tăng huyết áp', 'Đái tháo đường', 'Dạ dày'];
+        window.seedDatabase = function(num) {
+            const firstNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Đặng'];
+            const lastNames = ['An', 'Bình', 'Châu', 'Dương', 'Hải', 'Khang', 'Lan', 'Minh', 'Ngọc', 'Tuấn'];
+            const diags = ['Tăng huyết áp', 'Đái tháo đường', 'Rối loạn lipid máu', 'Viêm khớp', 'Dạ dày', 'Hen suyễn'];
             let today = new Date();
 
-            for(let i = 1; i <= 15; i++) {
+            for(let i = 1; i <= num; i++) {
                 const pid = `P${i.toString().padStart(3, '0')}`;
+                const name = `${firstNames[Math.floor(Math.random()*firstNames.length)]} ${lastNames[Math.floor(Math.random()*lastNames.length)]}`;
                 let lastVisitDate = new Date();
-                lastVisitDate.setDate(today.getDate() - Math.floor(Math.random() * 30));
-                let dateStr = lastVisitDate.toISOString().split('T')[0];
+                lastVisitDate.setDate(today.getDate() - Math.floor(Math.random() * 60));
 
-                await saveToFirebase('patients', {
-                    code: `BN${i.toString().padStart(4, '0')}`,
-                    name: `${firstNames[Math.floor(Math.random()*firstNames.length)]} ${lastNames[Math.floor(Math.random()*lastNames.length)]}`,
+                DB.patients.push({
+                    id: pid, code: `BN${i.toString().padStart(4, '0')}`, name: name,
                     gender: Math.random()>0.5?'Nam':'Nữ', dob: `19${Math.floor(Math.random()*40)+50}-01-15`,
-                    phone: `0869${Math.floor(Math.random()*1000000)}`, blood_type: 'O+',
+                    phone: `090${Math.floor(Math.random()*10000000)}`, blood_type: 'O+',
                     diagnosis: diags[Math.floor(Math.random()*diags.length)],
                     risk_level: Math.random() > 0.8 ? 'High' : (Math.random() > 0.5 ? 'Medium' : 'Low'),
-                    last_visit: dateStr
-                }, pid);
+                    last_visit: lastVisitDate.toISOString().split('T')[0]
+                });
 
-                await saveToFirebase('visits', { patient_id: pid, date: dateStr, complaint: 'Khám định kỳ', assessment: 'Ổn định', plan: 'Theo dõi' }, `V${i}`);
-                await saveToFirebase('medications', { patient_id: pid, name: 'Amlodipine 5mg', route: 'Uống', freq: '1 viên Sáng', status: 'Active', note: 'Sau ăn' }, `M${i}`);
+                if(Math.random() > 0.3) {
+                    DB.visits.push({ id: `V${i}1`, patient_id: pid, date: lastVisitDate.toISOString().split('T')[0], complaint: 'Khám định kỳ', assessment: 'Ổn định', plan: 'Theo dõi' });
+                }
+
+                if(Math.random() > 0.6) {
+                    let aptDate = new Date();
+                    aptDate.setDate(today.getDate() + Math.floor(Math.random() * 20) - 10);
+                    let statuses = ['Scheduled', 'Completed', 'Cancelled', 'Missed'];
+                    let finalStatus = aptDate >= today ? 'Scheduled' : statuses[Math.floor(Math.random() * statuses.length)];
+                    
+                    DB.appointments.push({
+                        id: `A${Date.now()}_${i}`, patient_id: pid, date: aptDate.toISOString().split('T')[0],
+                        purpose: 'Tái khám', status: finalStatus
+                    });
+                }
                 
-                let aptDate = new Date(); aptDate.setDate(today.getDate() + Math.floor(Math.random() * 10) - 5);
-                await saveToFirebase('appointments', { patient_id: pid, date: aptDate.toISOString().split('T')[0], purpose: 'Tái khám', status: aptDate>=today?'Scheduled':'Completed' }, `A${i}`);
+                if(Math.random() > 0.5) {
+                    DB.medications.push({
+                        id: `M${i}1`, patient_id: pid, name: 'Amlodipine 5mg', route: 'Uống', freq: '1 viên Sáng', status: 'Active', note: 'Sau ăn'
+                    });
+                }
+
+                if(Math.random() > 0.4) {
+                    let invStatus = Math.random() > 0.3 ? 'Paid' : 'Unpaid';
+                    DB.invoices.push({
+                        id: `INV${i}_${Math.floor(Math.random()*1000)}`, patient_id: pid, date: lastVisitDate.toISOString().split('T')[0],
+                        amount: Math.floor(Math.random() * 10 + 1) * 50000,
+                        description: 'Phí khám bệnh và xét nghiệm',
+                        status: invStatus
+                    });
+                }
             }
+            saveDB();
         }
 
-        // --- GIAO DIỆN & LOGIC ỨNG DỤNG ---
-        const ui = {
-            toggleSidebar: () => { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('mobile-sidebar-backdrop').classList.toggle('hidden'); },
-            closeSidebar: () => { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('mobile-sidebar-backdrop').classList.add('hidden'); },
-            showToast: (message, type = 'success') => {
+        window.ui = {
+            toggleSidebar: function() {
+                const sidebar = document.getElementById('sidebar');
+                const backdrop = document.getElementById('mobile-sidebar-backdrop');
+                sidebar.classList.toggle('-translate-x-full');
+                backdrop.classList.toggle('hidden');
+            },
+            closeSidebar: function() {
+                const sidebar = document.getElementById('sidebar');
+                const backdrop = document.getElementById('mobile-sidebar-backdrop');
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            },
+            showToast: function(message, type = 'success') {
                 const container = document.getElementById('toast-container');
                 const toast = document.createElement('div');
                 const colors = { success: 'bg-emerald-600', info: 'bg-blue-600', error: 'bg-rose-600' };
                 const icons = { success: 'fa-check-circle', info: 'fa-info-circle', error: 'fa-circle-exclamation' };
+                
                 toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 fade-in transition-all duration-300`;
                 toast.innerHTML = `<i class="fa-solid ${icons[type]} text-lg shrink-0"></i> <span class="font-medium text-sm">${message}</span>`;
+                
                 container.appendChild(toast);
                 setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
             },
@@ -375,18 +450,23 @@
             closeModal: id => { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
         };
 
-        const app = {
-            currentView: 'dashboard', selectedPatientId: null, detailTab: 'overview',
-            apptTab: 'Scheduled', patientFilter: 'All', billFilter: 'All', deleteTarget: { type: null, id: null }, charts: {},
+        window.app = {
+            currentView: 'dashboard',
+            selectedPatient: null,
+            detailTab: 'overview',
+            apptTab: 'Scheduled', 
+            patientFilter: 'All', 
+            billFilter: 'All', 
+            deleteTarget: { type: null, id: null },
+            charts: {}, 
+
             getToday: () => new Date().toISOString().split('T')[0],
 
-            refreshCurrentView: function() {
-                if (this.currentView === 'dashboard') renderDashboard();
-                if (this.currentView === 'patients') renderPatientsList();
-                if (this.currentView === 'appointments') renderAppointmentsList();
-                if (this.currentView === 'billing') renderBillingList();
-                if (this.currentView === 'patient-detail' && this.selectedPatientId) renderPatientDetail();
+            setDetailTab: function(tabName) {
+                this.detailTab = tabName;
+                renderPatientDetailTabs();
             },
+
             navigate: function(viewId, params = null) {
                 ui.closeSidebar();
                 document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active', 'bg-e0f2fe', 'text-0369a1', 'border-r-4', 'border-0284c7'));
@@ -398,231 +478,702 @@
                 if(viewEl) { viewEl.classList.remove('hidden'); viewEl.classList.add('block'); }
 
                 this.currentView = viewId;
-                if(params?.filter) {
-                    if(viewId === 'patients') this.patientFilter = params.filter;
-                    if(viewId === 'billing') this.billFilter = params.filter;
-                }
-                if(viewId === 'patient-detail' && params?.id) {
-                    this.selectedPatientId = params.id;
-                    this.detailTab = params?.tab || 'overview';
-                }
-                this.refreshCurrentView();
-            },
-            setDetailTab: function(tabName) { this.detailTab = tabName; renderPatientDetailTabs(); },
 
-            // Modals
-            openAddPatient: function() { ui.closeSidebar(); document.getElementById('form-patient').reset(); document.getElementById('inp_p_id').value = ''; document.getElementById('modal-patient-title').innerHTML = 'Thêm Bệnh Nhân Mới'; ui.openModal('modal-patient'); },
-            openEditPatient: function() {
-                const p = window.DB.patients.find(x => x.id === this.selectedPatientId); if(!p) return;
-                document.getElementById('inp_p_id').value = p.id; document.getElementById('inp_p_code').value = p.code;
-                document.getElementById('inp_p_name').value = p.name; document.getElementById('inp_p_gender').value = p.gender;
-                document.getElementById('inp_p_dob').value = p.dob; document.getElementById('inp_p_phone').value = p.phone;
-                document.getElementById('inp_p_blood').value = p.blood_type; document.getElementById('inp_p_diag').value = p.diagnosis;
-                document.getElementById('inp_p_risk').value = p.risk_level;
-                ui.openModal('modal-patient');
-            },
-            savePatient: async function() {
-                const id = document.getElementById('inp_p_id').value;
-                const code = document.getElementById('inp_p_code').value.trim();
-                const name = document.getElementById('inp_p_name').value.trim();
-                if(!code || !name) return ui.showToast('Nhập mã và tên', 'error');
-                const data = {
-                    code, name, gender: document.getElementById('inp_p_gender').value, dob: document.getElementById('inp_p_dob').value,
-                    phone: document.getElementById('inp_p_phone').value, blood_type: document.getElementById('inp_p_blood').value,
-                    diagnosis: document.getElementById('inp_p_diag').value, risk_level: document.getElementById('inp_p_risk').value,
-                    last_visit: id ? window.DB.patients.find(x=>x.id===id).last_visit : 'Chưa có'
-                };
-                const newId = await saveToFirebase('patients', data, id || null);
-                ui.closeModal('modal-patient');
-                ui.showToast('Đã lưu hồ sơ', 'success');
-                if(!id) this.navigate('patient-detail', {id: newId});
-            },
-            openAddVisit: function(pid = null) {
-                const targetId = pid || this.selectedPatientId; if(!targetId) return;
-                document.getElementById('form-visit').reset(); document.getElementById('inp_v_id').value = '';
-                document.getElementById('inp_v_date').value = this.getToday();
-                app._tempPid = targetId; ui.openModal('modal-visit');
-            },
-            openEditVisit: function(id) {
-                const v = window.DB.visits.find(x=>x.id===id); if(!v) return;
-                document.getElementById('inp_v_id').value = v.id; document.getElementById('inp_v_date').value = v.date;
-                document.getElementById('inp_v_complaint').value = v.complaint; document.getElementById('inp_v_assessment').value = v.assessment;
-                document.getElementById('inp_v_plan').value = v.plan; app._tempPid = v.patient_id; ui.openModal('modal-visit');
-            },
-            saveVisit: async function() {
-                const id = document.getElementById('inp_v_id').value;
-                const date = document.getElementById('inp_v_date').value;
-                const data = { patient_id: app._tempPid, date, complaint: document.getElementById('inp_v_complaint').value, assessment: document.getElementById('inp_v_assessment').value, plan: document.getElementById('inp_v_plan').value };
-                await saveToFirebase('visits', data, id || null);
-                
-                // Cập nhật ngày khám cuối của BN
-                const p = window.DB.patients.find(x=>x.id===app._tempPid);
-                if(p) { p.last_visit = date; await saveToFirebase('patients', p, p.id); }
-                ui.closeModal('modal-visit'); ui.showToast('Đã lưu lượt khám');
-            },
-            openAddMedication: function() { if(!this.selectedPatientId) return; document.getElementById('form-med').reset(); document.getElementById('inp_m_id').value = ''; ui.openModal('modal-medication'); },
-            openEditMedication: function(id) {
-                const m = window.DB.medications.find(x=>x.id===id); if(!m) return;
-                document.getElementById('inp_m_id').value = m.id; document.getElementById('inp_m_name').value = m.name;
-                document.getElementById('inp_m_route').value = m.route; document.getElementById('inp_m_freq').value = m.freq;
-                document.getElementById('inp_m_status').value = m.status; document.getElementById('inp_m_note').value = m.note;
-                ui.openModal('modal-medication');
-            },
-            saveMedication: async function() {
-                const id = document.getElementById('inp_m_id').value;
-                const data = { patient_id: this.selectedPatientId, name: document.getElementById('inp_m_name').value, route: document.getElementById('inp_m_route').value, freq: document.getElementById('inp_m_freq').value, status: document.getElementById('inp_m_status').value, note: document.getElementById('inp_m_note').value };
-                await saveToFirebase('medications', data, id || null);
-                ui.closeModal('modal-medication'); ui.showToast('Đã lưu đơn thuốc');
-            },
-            openAddAppointment: function(pid = null) {
-                document.getElementById('form-appointment').reset(); document.getElementById('inp_a_id').value = ''; document.getElementById('inp_a_date').value = this.getToday();
-                const sel = document.getElementById('inp_a_patient'); sel.innerHTML = window.DB.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join(''); sel.disabled = false;
-                if(pid || this.selectedPatientId) sel.value = pid || this.selectedPatientId;
-                ui.openModal('modal-appointment');
-            },
-            openEditAppointment: function(id) {
-                const a = window.DB.appointments.find(x=>x.id===id); if(!a) return;
-                document.getElementById('inp_a_id').value = a.id; document.getElementById('inp_a_date').value = a.date; document.getElementById('inp_a_purpose').value = a.purpose;
-                const sel = document.getElementById('inp_a_patient'); sel.innerHTML = `<option value="${a.patient_id}">${window.DB.patients.find(p=>p.id===a.patient_id)?.name}</option>`; sel.disabled = true;
-                ui.openModal('modal-appointment');
-            },
-            saveAppointment: async function() {
-                const id = document.getElementById('inp_a_id').value;
-                const data = { patient_id: document.getElementById('inp_a_patient').value, date: document.getElementById('inp_a_date').value, purpose: document.getElementById('inp_a_purpose').value, status: id ? window.DB.appointments.find(x=>x.id===id).status : 'Scheduled' };
-                await saveToFirebase('appointments', data, id || null);
-                ui.closeModal('modal-appointment'); ui.showToast('Đã lưu lịch hẹn');
-            },
-            markApptStatus: async function(id, status) { const a = window.DB.appointments.find(x=>x.id===id); if(a) { a.status = status; await saveToFirebase('appointments', a, id); } },
-            openAddInvoice: function(pid = null) {
-                document.getElementById('form-invoice').reset(); document.getElementById('inp_i_id').value = ''; document.getElementById('inp_i_date').value = this.getToday();
-                const sel = document.getElementById('inp_i_patient'); sel.innerHTML = window.DB.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join(''); sel.disabled = false;
-                if(pid || this.selectedPatientId) sel.value = pid || this.selectedPatientId;
-                ui.openModal('modal-invoice');
-            },
-            openEditInvoice: function(id) {
-                const i = window.DB.invoices.find(x=>x.id===id); if(!i) return;
-                document.getElementById('inp_i_id').value = i.id; document.getElementById('inp_i_date').value = i.date; document.getElementById('inp_i_amount').value = i.amount; document.getElementById('inp_i_desc').value = i.description; document.getElementById('inp_i_status').value = i.status;
-                const sel = document.getElementById('inp_i_patient'); sel.innerHTML = `<option value="${i.patient_id}">${window.DB.patients.find(p=>p.id===i.patient_id)?.name}</option>`; sel.disabled = true;
-                ui.openModal('modal-invoice');
-            },
-            saveInvoice: async function() {
-                const id = document.getElementById('inp_i_id').value;
-                const data = { patient_id: document.getElementById('inp_i_patient').value, date: document.getElementById('inp_i_date').value, amount: Number(document.getElementById('inp_i_amount').value), description: document.getElementById('inp_i_desc').value, status: document.getElementById('inp_i_status').value };
-                await saveToFirebase('invoices', data, id || null);
-                ui.closeModal('modal-invoice'); ui.showToast('Đã lưu hóa đơn');
-            },
-            markInvoiceStatus: async function(id, status) { const i = window.DB.invoices.find(x=>x.id===id); if(i) { i.status = status; await saveToFirebase('invoices', i, id); } },
-            requestDelete: function(type, id) { this.deleteTarget = {type, id}; ui.openModal('modal-confirm'); },
-            confirmDelete: async function() {
-                const {type, id} = this.deleteTarget;
-                if(type === 'patient') {
-                    await deleteFromFirebase('patients', id);
-                    window.DB.visits.filter(v=>v.patient_id===id).forEach(v => deleteFromFirebase('visits', v.id));
-                    window.DB.appointments.filter(a=>a.patient_id===id).forEach(a => deleteFromFirebase('appointments', a.id));
-                    window.DB.medications.filter(m=>m.patient_id===id).forEach(m => deleteFromFirebase('medications', m.id));
-                    window.DB.invoices.filter(i=>i.patient_id===id).forEach(i => deleteFromFirebase('invoices', i.id));
-                    this.navigate('patients');
-                } else {
-                    await deleteFromFirebase(type + 's', id);
+                if (viewId === 'dashboard') renderDashboard();
+                if (viewId === 'patients') { this.patientFilter = params?.filter || 'All'; renderPatientsList(); }
+                if (viewId === 'appointments') renderAppointmentsList();
+                if (viewId === 'billing') { this.billFilter = params?.filter || 'All'; renderBillingList(); }
+                if (viewId === 'patient-detail' && params?.id) {
+                    this.selectedPatient = DB.patients.find(p => p.id === params.id);
+                    this.detailTab = params?.tab || 'overview';
+                    renderPatientDetail();
                 }
-                ui.closeModal('modal-confirm'); ui.showToast('Đã xóa dữ liệu');
+            },
+
+            // Các hàm quản lý (GIỮ NGUYÊN HOÀN TOÀN TỪ SOURCE CŨ)
+            openAddPatient: function() { ui.closeSidebar(); document.getElementById('form-patient').reset(); document.getElementById('inp_p_id').value = ''; document.getElementById('modal-patient-title').innerHTML = '<i class="fa-solid fa-user-plus mr-2"></i>Thêm Bệnh Nhân Mới'; ui.openModal('modal-patient'); },
+            openEditPatient: function() { const p = this.selectedPatient; if(!p) return; document.getElementById('modal-patient-title').innerHTML = `<i class="fa-solid fa-user-pen mr-2"></i>Sửa Hồ Sơ: ${p.code}`; document.getElementById('inp_p_id').value = p.id; document.getElementById('inp_p_code').value = p.code; document.getElementById('inp_p_name').value = p.name; document.getElementById('inp_p_gender').value = p.gender; document.getElementById('inp_p_dob').value = p.dob; document.getElementById('inp_p_phone').value = p.phone; document.getElementById('inp_p_blood').value = p.blood_type; document.getElementById('inp_p_diag').value = p.diagnosis; document.getElementById('inp_p_risk').value = p.risk_level || 'Low'; ui.openModal('modal-patient'); },
+            savePatient: function() {
+                const id = document.getElementById('inp_p_id').value; const code = document.getElementById('inp_p_code').value.trim(); const name = document.getElementById('inp_p_name').value.trim(); const dob = document.getElementById('inp_p_dob').value;
+                if(!code || !name || !dob) { ui.showToast('Vui lòng nhập Mã BN, Tên và Ngày sinh', 'error'); return; }
+                const data = { code, name, gender: document.getElementById('inp_p_gender').value, dob, phone: document.getElementById('inp_p_phone').value, blood_type: document.getElementById('inp_p_blood').value, diagnosis: document.getElementById('inp_p_diag').value, risk_level: document.getElementById('inp_p_risk').value };
+                if (id) { const idx = DB.patients.findIndex(p => p.id === id); if(idx > -1) { DB.patients[idx] = { ...DB.patients[idx], ...data }; this.selectedPatient = DB.patients[idx]; } ui.showToast('Đã cập nhật hồ sơ', 'success'); } 
+                else { const newId = `P${Date.now().toString().slice(-4)}`; DB.patients.unshift({ id: newId, last_visit: 'Chưa có', ...data }); ui.showToast(`Đã thêm BN: ${code}`, 'success'); this.navigate('patient-detail', {id: newId}); }
+                saveDB(); ui.closeModal('modal-patient');
+                if (this.currentView === 'patients') renderPatientsList();
+                if (this.currentView === 'patient-detail' && id) renderPatientDetail();
+            },
+            openAddVisit: function(patientId = null) { if(patientId) this.selectedPatient = DB.patients.find(p => p.id === patientId); if(!this.selectedPatient) return; document.getElementById('form-visit').reset(); document.getElementById('inp_v_id').value = ''; document.getElementById('inp_v_date').value = this.getToday(); document.getElementById('modal-visit-title').innerHTML = `<i class="fa-solid fa-plus-circle mr-2"></i>Thêm Lượt Khám (${this.selectedPatient.name})`; ui.openModal('modal-visit'); },
+            openEditVisit: function(id) { const v = DB.visits.find(x => x.id === id); if(!v) return; document.getElementById('inp_v_id').value = v.id; document.getElementById('inp_v_date').value = v.date; document.getElementById('inp_v_complaint').value = v.complaint; document.getElementById('inp_v_assessment').value = v.assessment; document.getElementById('inp_v_plan').value = v.plan; document.getElementById('modal-visit-title').innerHTML = '<i class="fa-solid fa-pen mr-2"></i>Sửa Thông Tin Khám'; ui.openModal('modal-visit'); },
+            saveVisit: function() {
+                const id = document.getElementById('inp_v_id').value; const date = document.getElementById('inp_v_date').value; const complaint = document.getElementById('inp_v_complaint').value;
+                if(!complaint) { ui.showToast('Bắt buộc nhập Lý do khám', 'error'); return; }
+                const data = { date, complaint, assessment: document.getElementById('inp_v_assessment').value, plan: document.getElementById('inp_v_plan').value };
+                if (id) { const idx = DB.visits.findIndex(v => v.id === id); if(idx > -1) DB.visits[idx] = { ...DB.visits[idx], ...data }; ui.showToast('Đã cập nhật lượt khám', 'success'); } 
+                else { DB.visits.unshift({ id: `V${Date.now()}`, patient_id: this.selectedPatient.id, ...data }); const pIdx = DB.patients.findIndex(p => p.id === this.selectedPatient.id); if(pIdx > -1) DB.patients[pIdx].last_visit = date; ui.showToast('Đã tạo lượt khám mới', 'success'); }
+                saveDB(); ui.closeModal('modal-visit');
+                if(this.currentView !== 'patient-detail') this.navigate('patient-detail', {id: this.selectedPatient.id, tab: 'visits'});
+                else { this.detailTab = 'visits'; renderPatientDetailTabs(); }
+            },
+            openAddMedication: function() { if(!this.selectedPatient) return; document.getElementById('form-med').reset(); document.getElementById('inp_m_id').value = ''; document.getElementById('modal-med-title').innerHTML = '<i class="fa-solid fa-capsules mr-2"></i>Kê Đơn Thuốc Mới'; ui.openModal('modal-medication'); },
+            openEditMedication: function(id) { const m = DB.medications.find(x => x.id === id); if(!m) return; document.getElementById('inp_m_id').value = m.id; document.getElementById('inp_m_name').value = m.name; document.getElementById('inp_m_route').value = m.route; document.getElementById('inp_m_freq').value = m.freq; document.getElementById('inp_m_status').value = m.status; document.getElementById('inp_m_note').value = m.note || ''; document.getElementById('modal-med-title').innerHTML = '<i class="fa-solid fa-pen mr-2"></i>Sửa Đơn Thuốc'; ui.openModal('modal-medication'); },
+            saveMedication: function() {
+                const id = document.getElementById('inp_m_id').value; const name = document.getElementById('inp_m_name').value.trim();
+                if(!name) { ui.showToast('Vui lòng nhập Tên thuốc', 'error'); return; }
+                const data = { name, route: document.getElementById('inp_m_route').value, freq: document.getElementById('inp_m_freq').value, status: document.getElementById('inp_m_status').value, note: document.getElementById('inp_m_note').value };
+                if (id) { const idx = DB.medications.findIndex(m => m.id === id); if(idx > -1) DB.medications[idx] = { ...DB.medications[idx], ...data }; ui.showToast('Đã cập nhật đơn thuốc', 'success'); } 
+                else { DB.medications.unshift({ id: `M${Date.now()}`, patient_id: this.selectedPatient.id, ...data }); ui.showToast('Đã thêm thuốc mới', 'success'); }
+                saveDB(); ui.closeModal('modal-medication'); if (this.currentView === 'patient-detail') { this.detailTab = 'meds'; renderPatientDetailTabs(); }
             },
             printPrescription: function() {
-                const p = window.DB.patients.find(x=>x.id === this.selectedPatientId);
-                const meds = window.DB.medications.filter(m => m.patient_id === p.id && m.status === 'Active');
-                if(!p || meds.length === 0) return ui.showToast('Không có thuốc để in', 'info');
-                const win = window.open('', '', 'width=800,height=600');
-                win.document.write(`<html><head><title>Đơn Thuốc</title><style>body{font-family:serif;padding:40px} table{width:100%;border-collapse:collapse} th,td{border:1px solid #000;padding:8px;text-align:left}</style></head><body><h1 style="text-align:center">Phòng Khám MediCare Pro</h1><p style="text-align:center">52 Lý Chiêu Hoàng, TP.HCM | SĐT: 0869877995</p><h2 style="text-align:center">ĐƠN THUỐC</h2><p><strong>BN:</strong> ${p.name} (${p.code}) - ${p.gender}</p><p><strong>Chẩn đoán:</strong> ${p.diagnosis}</p><table><thead><tr><th>Tên thuốc</th><th>Đường dùng</th><th>Liều/Tần suất</th><th>Ghi chú</th></tr></thead><tbody>${meds.map(m=>`<tr><td>${m.name}</td><td>${m.route}</td><td>${m.freq}</td><td>${m.note}</td></tr>`).join('')}</tbody></table><p style="text-align:right;margin-top:40px">Bác sĩ ký tên</p><script>window.onload=function(){window.print();window.close();}<\/script></body></html>`); win.document.close();
+                const p = this.selectedPatient; const meds = DB.medications.filter(m => m.patient_id === p.id && m.status === 'Active');
+                if(meds.length === 0) { ui.showToast('Bệnh nhân không có thuốc đang dùng để in', 'info'); return; }
+                const printWin = window.open('', '', 'width=800,height=600');
+                printWin.document.write(`<html><head><title>Đơn Thuốc - ${p.name}</title><style>body { font-family: 'Times New Roman', serif; padding: 40px; line-height: 1.6; color: #000; } .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; } .clinic-name { font-size: 24px; font-weight: bold; margin: 0; text-transform: uppercase; } .clinic-info { margin: 5px 0 0 0; font-size: 14px; } .title { text-align: center; text-transform: uppercase; font-size: 22px; margin: 20px 0 30px; letter-spacing: 2px;} .patient-info { margin-bottom: 30px; font-size: 16px; } .patient-info p { margin: 8px 0; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { border: 1px solid #000; padding: 10px; text-align: left; font-size: 15px; } th { background-color: #f0f0f0; } .footer { margin-top: 50px; text-align: right; font-size: 16px; padding-right: 20px;} .signature { margin-top: 80px; font-style: italic; }</style></head><body><div class="header"><h1 class="clinic-name">Phòng Khám MediCare Pro</h1><p class="clinic-info">52 Lý Chiêu Hoàng, Medicare Pro, TP.HCM | SĐT: 0869877995</p></div><h2 class="title">Đơn Thuốc</h2><div class="patient-info"><p><strong>Họ và tên bệnh nhân:</strong> ${p.name.toUpperCase()} <span style="float:right;"><strong>Mã BN:</strong> ${p.code}</span></p><p><strong>Tuổi:</strong> ${new Date().getFullYear() - parseInt(p.dob.split('-')[0])} <span style="margin-left: 50px;"><strong>Giới tính:</strong> ${p.gender}</span><span style="float:right;"><strong>SĐT:</strong> ${p.phone}</span></p><p><strong>Chẩn đoán:</strong> ${p.diagnosis || 'Chưa cập nhật'}</p></div><h3 style="margin-bottom: 10px; font-size: 18px;">Chỉ định dùng thuốc:</h3><table><thead><tr><th width="5%">STT</th><th width="35%">Tên thuốc (Hoạt chất)</th><th width="15%">Đường dùng</th><th width="25%">Liều dùng/Tần suất</th><th width="20%">Ghi chú</th></tr></thead><tbody>${meds.map((m, i) => `<tr><td style="text-align:center;">${i+1}</td><td><strong>${m.name}</strong></td><td>${m.route}</td><td>${m.freq}</td><td>${m.note || ''}</td></tr>`).join('')}</tbody></table><div class="footer"><p>Ngày ${new Date().getDate()} tháng ${new Date().getMonth() + 1} năm ${new Date().getFullYear()}</p><p><strong>Bác sĩ điều trị</strong></p><div class="signature">(Ký và ghi rõ họ tên)</div></div><script>window.onload = function() { setTimeout(function(){ window.print(); window.close(); }, 200); }<\/script></body></html>`);
+                printWin.document.close();
+            },
+            openAddAppointment: function(patientId = null) { document.getElementById('form-appointment').reset(); document.getElementById('inp_a_id').value = ''; document.getElementById('inp_a_date').value = this.getToday(); document.getElementById('modal-appointment-title').innerHTML = '<i class="fa-solid fa-calendar-plus mr-2"></i>Tạo Lịch Hẹn Mới'; const select = document.getElementById('inp_a_patient'); select.innerHTML = DB.patients.map(p => `<option value="${p.id}">${p.code} - ${p.name}</option>`).join(''); select.disabled = false; if (patientId) select.value = patientId; else if (this.selectedPatient && this.currentView === 'patient-detail') select.value = this.selectedPatient.id; ui.openModal('modal-appointment'); },
+            openEditAppointment: function(id) { const a = DB.appointments.find(x => x.id === id); if(!a) return; document.getElementById('inp_a_id').value = a.id; document.getElementById('inp_a_date').value = a.date; document.getElementById('inp_a_purpose').value = a.purpose; document.getElementById('modal-appointment-title').innerHTML = '<i class="fa-solid fa-pen mr-2"></i>Sửa Lịch Hẹn'; const select = document.getElementById('inp_a_patient'); select.innerHTML = DB.patients.map(p => `<option value="${p.id}" ${p.id === a.patient_id ? 'selected' : ''}>${p.code} - ${p.name}</option>`).join(''); select.disabled = true; ui.openModal('modal-appointment'); },
+            saveAppointment: function() {
+                const id = document.getElementById('inp_a_id').value; const pid = document.getElementById('inp_a_patient').value; const date = document.getElementById('inp_a_date').value; const purpose = document.getElementById('inp_a_purpose').value;
+                if(!pid || !date || !purpose) { ui.showToast('Vui lòng điền đủ thông tin', 'error'); return; }
+                if (id) { const idx = DB.appointments.findIndex(a => a.id === id); if(idx > -1) { DB.appointments[idx].date = date; DB.appointments[idx].purpose = purpose; } ui.showToast('Cập nhật lịch hẹn thành công', 'success'); } 
+                else { DB.appointments.push({ id: `A${Date.now()}`, patient_id: pid, date, purpose, status: 'Scheduled' }); ui.showToast('Đã tạo lịch hẹn mới', 'success'); }
+                saveDB(); ui.closeModal('modal-appointment');
+                if (this.currentView === 'appointments') renderAppointmentsList(); if (this.currentView === 'dashboard') renderDashboard(); if (this.currentView === 'patient-detail') { this.detailTab = 'appointments'; renderPatientDetailTabs(); }
+            },
+            markApptStatus: function(id, newStatus) {
+                const idx = DB.appointments.findIndex(a => a.id === id);
+                if(idx > -1) { DB.appointments[idx].status = newStatus; saveDB(); const msgs = { 'Scheduled': 'Khôi phục trạng thái Sắp tới', 'Completed': 'Xác nhận Hoàn tất', 'Cancelled': 'Đã Hủy lịch hẹn', 'Missed': 'Đánh dấu Bỏ lỡ' }; const type = (newStatus === 'Cancelled' || newStatus === 'Missed') ? 'info' : 'success'; ui.showToast(msgs[newStatus], type); if (this.currentView === 'appointments') renderAppointmentsList(); if (this.currentView === 'dashboard') renderDashboard(); if (this.currentView === 'patient-detail') renderPatientDetailTabs(); }
+            },
+            openAddInvoice: function(patientId = null) { document.getElementById('form-invoice').reset(); document.getElementById('inp_i_id').value = ''; document.getElementById('inp_i_date').value = this.getToday(); document.getElementById('modal-invoice-title').innerHTML = '<i class="fa-solid fa-file-invoice-dollar mr-2"></i>Tạo Hóa Đơn Mới'; const select = document.getElementById('inp_i_patient'); select.innerHTML = DB.patients.map(p => `<option value="${p.id}">${p.code} - ${p.name}</option>`).join(''); select.disabled = false; if (patientId) select.value = patientId; else if (this.selectedPatient && this.currentView === 'patient-detail') select.value = this.selectedPatient.id; ui.openModal('modal-invoice'); },
+            openEditInvoice: function(id) { const i = DB.invoices.find(x => x.id === id); if(!i) return; document.getElementById('inp_i_id').value = i.id; document.getElementById('inp_i_date').value = i.date; document.getElementById('inp_i_amount').value = i.amount; document.getElementById('inp_i_desc').value = i.description; document.getElementById('inp_i_status').value = i.status; document.getElementById('modal-invoice-title').innerHTML = '<i class="fa-solid fa-pen mr-2"></i>Sửa Hóa Đơn'; const select = document.getElementById('inp_i_patient'); select.innerHTML = DB.patients.map(p => `<option value="${p.id}" ${p.id === i.patient_id ? 'selected' : ''}>${p.code} - ${p.name}</option>`).join(''); select.disabled = true; ui.openModal('modal-invoice'); },
+            saveInvoice: function() {
+                const id = document.getElementById('inp_i_id').value; const pid = document.getElementById('inp_i_patient').value; const date = document.getElementById('inp_i_date').value; const amount = document.getElementById('inp_i_amount').value; const desc = document.getElementById('inp_i_desc').value; const status = document.getElementById('inp_i_status').value;
+                if(!pid || !date || !amount || !desc) { ui.showToast('Vui lòng điền đầy đủ thông tin bắt buộc', 'error'); return; }
+                const data = { patient_id: pid, date, amount: Number(amount), description: desc, status };
+                if (id) { const idx = DB.invoices.findIndex(i => i.id === id); if(idx > -1) DB.invoices[idx] = { id, ...data }; ui.showToast('Cập nhật hóa đơn thành công', 'success'); } 
+                else { DB.invoices.push({ id: `INV${Date.now()}`, ...data }); ui.showToast('Đã tạo hóa đơn mới', 'success'); }
+                saveDB(); ui.closeModal('modal-invoice');
+                if (this.currentView === 'billing') renderBillingList(); if (this.currentView === 'patient-detail') { this.detailTab = 'invoices'; renderPatientDetailTabs(); }
+            },
+            markInvoiceStatus: function(id, status) {
+                const idx = DB.invoices.findIndex(i => i.id === id);
+                if(idx > -1) { DB.invoices[idx].status = status; saveDB(); ui.showToast(status === 'Paid' ? 'Đã thu tiền thành công' : 'Đã chuyển thành Chưa thanh toán', 'success'); if(this.currentView === 'billing') renderBillingList(); if(this.currentView === 'patient-detail') renderPatientDetailTabs(); }
+            },
+            requestDelete: function(type, id) {
+                this.deleteTarget = { type, id }; const titleEl = document.getElementById('confirm-title'); const msgEl = document.getElementById('confirm-msg');
+                if(type === 'patient') { titleEl.innerText = "Xóa toàn bộ Hồ Sơ?"; msgEl.innerHTML = "Hành động này sẽ <strong>xóa vĩnh viễn</strong> hồ sơ bệnh nhân, cùng toàn bộ lịch khám, hóa đơn và đơn thuốc. Không thể hoàn tác."; } 
+                else { titleEl.innerText = "Xác nhận xóa dữ liệu"; msgEl.innerText = "Bạn có chắc chắn muốn xóa bản ghi này? Hành động này không thể hoàn tác."; }
+                ui.openModal('modal-confirm');
+            },
+            confirmDelete: function() {
+                const { type, id } = this.deleteTarget;
+                if(type === 'patient') { DB.patients = DB.patients.filter(p => p.id !== id); DB.visits = DB.visits.filter(v => v.patient_id !== id); DB.appointments = DB.appointments.filter(a => a.patient_id !== id); DB.medications = DB.medications.filter(m => m.patient_id !== id); DB.invoices = DB.invoices.filter(i => i.patient_id !== id); saveDB(); ui.closeModal('modal-confirm'); ui.showToast('Đã xóa hồ sơ và mọi dữ liệu', 'success'); this.navigate('patients'); return; } 
+                else if(type === 'visit') DB.visits = DB.visits.filter(v => v.id !== id); else if (type === 'appointment') DB.appointments = DB.appointments.filter(a => a.id !== id); else if (type === 'medication') DB.medications = DB.medications.filter(m => m.id !== id); else if (type === 'invoice') DB.invoices = DB.invoices.filter(i => i.id !== id);
+                saveDB(); ui.closeModal('modal-confirm'); ui.showToast('Đã xóa dữ liệu thành công', 'success');
+                if(this.currentView === 'appointments') renderAppointmentsList(); if(this.currentView === 'billing') renderBillingList(); if(this.currentView === 'dashboard') renderDashboard(); if(this.currentView === 'patient-detail') renderPatientDetailTabs();
             }
         };
 
-        // Gắn vào window để gọi từ HTML
-        window.app = app; window.ui = ui;
-
-        // Render Functions (Giữ nguyên logic HTML, thay biến DB)
-        function renderDashboard() {
+        window.renderDashboard = function() {
             const container = document.getElementById('view-dashboard');
-            const pts = window.DB.patients; const apts = window.DB.appointments;
-            const highRisk = pts.filter(p => p.risk_level === 'High').length;
-            const upcoming = apts.filter(a => a.date >= app.getToday() && a.status === 'Scheduled').sort((a,b) => new Date(a.date) - new Date(b.date));
+            const totalPatients = DB.patients.length;
+            const highRisk = DB.patients.filter(p => p.risk_level === 'High').length;
+            const today = app.getToday();
+            
+            const upcomingAppts = DB.appointments
+                .filter(a => a.date >= today && a.status === 'Scheduled')
+                .sort((a,b) => new Date(a.date) - new Date(b.date));
 
             container.innerHTML = `
-                <div class="mb-6 md:mb-8"><h1 class="text-2xl font-bold">Tổng Quan</h1><p class="text-slate-500">Dữ liệu đồng bộ thời gian thực (Cloud)</p></div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer" onclick="app.navigate('patients')"><p class="text-sm text-slate-500">Tổng Bệnh Nhân</p><h3 class="text-3xl font-bold">${pts.length}</h3></div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-rose-200 cursor-pointer" onclick="app.navigate('patients', {filter:'High'})"><p class="text-sm text-slate-500">Nguy Cơ Cao</p><h3 class="text-3xl font-bold text-rose-600">${highRisk}</h3></div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer" onclick="app.navigate('appointments')"><p class="text-sm text-slate-500">Lịch Hẹn Mới</p><h3 class="text-3xl font-bold">${upcoming.length}</h3></div>
+                <div class="mb-6 md:mb-8">
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-800">Tổng Quan Bảng Điều Khiển</h1>
+                    <p class="text-sm md:text-base text-slate-500 mt-1">Thông tin được tổng hợp theo thời gian thực từ Đám mây.</p>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border h-[400px] overflow-y-auto"><h3 class="font-bold mb-4">Lịch Hẹn Gần Nhất</h3>
-                        ${upcoming.slice(0,5).map(a => { const p=pts.find(x=>x.id===a.patient_id); return p ? `<div class="p-3 border rounded-lg mb-2 flex justify-between"><div class="cursor-pointer" onclick="app.navigate('patient-detail', {id:'${p.id}'})"><p class="font-bold">${p.name}</p><p class="text-xs text-slate-500">${a.date} - ${a.purpose}</p></div><button onclick="app.markApptStatus('${a.id}', 'Completed')" class="text-emerald-500"><i class="fa-solid fa-check"></i></button></div>`:''}).join('')}
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+                    <div class="bg-white p-5 md:p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-primary transition-all" onclick="app.navigate('patients', {filter: 'All'})">
+                        <div><p class="text-xs md:text-sm font-medium text-slate-500 mb-1">Tổng Số Hồ Sơ</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800">${totalPatients}</h3></div>
+                        <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-lg md:text-xl"><i class="fa-solid fa-users-medical"></i></div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border h-[400px] flex flex-col"><h3 class="font-bold mb-4">Phân Bố Rủi Ro</h3><div class="flex-1 relative"><canvas id="riskChart"></canvas></div></div>
-                </div>`;
+                    <div class="bg-white p-5 md:p-6 rounded-xl border border-rose-200 shadow-sm flex items-center justify-between relative overflow-hidden cursor-pointer hover:shadow-md hover:border-rose-400 transition-all group" onclick="app.navigate('patients', {filter: 'High'})">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-rose-500 group-hover:w-2 transition-all"></div>
+                        <div><p class="text-xs md:text-sm font-medium text-slate-500 mb-1">BN Nguy Cơ Cao</p><h3 class="text-2xl md:text-3xl font-bold text-rose-600">${highRisk}</h3></div>
+                        <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-lg md:text-xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                    <div class="bg-white p-5 md:p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md hover:border-emerald-400 transition-all" onclick="app.navigate('appointments')">
+                        <div><p class="text-xs md:text-sm font-medium text-slate-500 mb-1">Lịch Hẹn Cần Xử Lý</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800">${upcomingAppts.length}</h3></div>
+                        <div class="w-10 h-10 md:w-12 md:h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg md:text-xl"><i class="fa-regular fa-calendar-check"></i></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-4 md:p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[400px]">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                            <h3 class="font-bold text-slate-800"><i class="fa-regular fa-clock text-primary mr-2"></i> Lịch Hẹn Gần Nhất</h3>
+                            <button onclick="app.openAddAppointment()" class="text-sm text-primary hover:bg-teal-50 px-2 py-1 rounded transition-colors">+ Tạo lịch</button>
+                        </div>
+                        <div class="overflow-y-auto flex-1 md:pr-2 space-y-3">
+                            ${upcomingAppts.slice(0,5).map(apt => {
+                                const p = DB.patients.find(x => x.id === apt.patient_id);
+                                if(!p) return '';
+                                const isToday = apt.date === today;
+                                return `
+                                <div class="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors group">
+                                    <div class="flex items-center gap-3 cursor-pointer flex-1 min-w-0" onclick="app.navigate('patient-detail', {id: '${p.id}'})">
+                                        <div class="w-10 h-10 rounded-full ${isToday ? 'bg-rose-100 text-rose-700' : 'bg-blue-50 text-blue-600'} flex items-center justify-center font-bold text-sm shrink-0">${p.name.charAt(0)}</div>
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-sm text-slate-800 group-hover:text-primary transition-colors truncate">${p.name} <span class="text-xs text-slate-500 font-normal">(${p.code})</span></p>
+                                            <p class="text-xs text-slate-500 mt-0.5 truncate">${apt.purpose} • <span class="${isToday ? 'text-rose-600 font-medium' : ''}">${isToday ? 'Hôm nay' : apt.date}</span></p>
+                                        </div>
+                                    </div>
+                                    <button onclick="app.markApptStatus('${apt.id}', 'Completed')" class="w-8 h-8 rounded-full text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 transition-colors shrink-0 ml-2" title="Đánh dấu hoàn tất"><i class="fa-solid fa-check"></i></button>
+                                </div>
+                                `;
+                            }).join('')}
+                            ${upcomingAppts.length === 0 ? '<div class="text-center py-8 text-slate-400 text-sm italic">Không có lịch hẹn sắp tới.</div>' : ''}
+                        </div>
+                        ${upcomingAppts.length > 5 ? `<button onclick="app.navigate('appointments')" class="w-full text-center text-sm text-primary py-2 mt-2 hover:bg-slate-50 rounded">Xem tất cả ${upcomingAppts.length} lịch hẹn</button>` : ''}
+                    </div>
+
+                    <div class="bg-white p-4 md:p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[400px]">
+                        <h3 class="font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2"><i class="fa-solid fa-chart-pie text-primary mr-2"></i> Phân Bố Bệnh Nhân (Rủi Ro)</h3>
+                        <div class="flex-1 relative w-full flex justify-center items-center pb-4">
+                            <canvas id="riskChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            `;
+
             setTimeout(() => {
                 if(app.charts.risk) app.charts.risk.destroy();
                 const ctx = document.getElementById('riskChart');
-                if(ctx && pts.length > 0) {
-                    app.charts.risk = new Chart(ctx, { type: 'doughnut', data: { labels: ['An toàn','TB','Cao'], datasets: [{ data: [pts.filter(p=>p.risk_level==='Low').length, pts.filter(p=>p.risk_level==='Medium').length, highRisk], backgroundColor: ['#10b981','#f59e0b','#f43f5e']}] }, options:{responsive:true, maintainAspectRatio:false} });
+                if(ctx) {
+                    const low = DB.patients.filter(p=>p.risk_level==='Low').length; const med = DB.patients.filter(p=>p.risk_level==='Medium').length; const high = DB.patients.filter(p=>p.risk_level==='High').length;
+                    if(low === 0 && med === 0 && high === 0) return; 
+
+                    app.charts.risk = new Chart(ctx, {
+                        type: 'doughnut', data: { labels: ['An toàn (Low)', 'Trung bình (Med)', 'Nguy cơ cao (High)'], datasets: [{ data: [low, med, high], backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'], borderWidth: 0, hoverOffset: 4 }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } } }, cutout: '65%' }
+                    });
                 }
             }, 50);
         }
 
-        function renderPatientsList() {
+        window.renderPatientsList = function() {
             const container = document.getElementById('view-patients');
-            let list = window.DB.patients;
+            let list = DB.patients;
             if(app.patientFilter !== 'All') list = list.filter(p => p.risk_level === app.patientFilter);
-            
-            container.innerHTML = `<div class="flex justify-between items-center mb-4"><h1 class="text-2xl font-bold">Bệnh Nhân</h1><button onclick="app.openAddPatient()" class="bg-primary text-white px-4 py-2 rounded-lg">+ Thêm Mới</button></div>
-                <div class="bg-white rounded-xl shadow-sm border overflow-hidden"><table class="w-full text-left text-sm"><thead class="bg-slate-50 border-b"><tr><th class="p-4">Mã</th><th class="p-4">Họ Tên</th><th class="p-4">SĐT</th><th class="p-4">CĐ</th><th class="p-4 text-center">Rủi ro</th></tr></thead><tbody>
-                ${list.map(p => `<tr class="border-b hover:bg-slate-50 cursor-pointer" onclick="app.navigate('patient-detail', {id:'${p.id}'})"><td class="p-4">${p.code}</td><td class="p-4 font-bold">${p.name}</td><td class="p-4">${p.phone}</td><td class="p-4">${p.diagnosis}</td><td class="p-4 text-center"><span class="text-xs px-2 py-1 rounded bg-slate-100">${p.risk_level}</span></td></tr>`).join('')}
-                </tbody></table></div>`;
+
+            const filterPills = `
+                <div class="flex gap-2 overflow-x-auto hide-scrollbar py-1 mb-4">
+                    <button onclick="app.patientFilter='All'; renderPatientsList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.patientFilter==='All' ? 'active bg-slate-800 text-white border-slate-800' : 'text-slate-600 bg-white hover:bg-slate-50'}">Tất cả</button>
+                    <button onclick="app.patientFilter='High'; renderPatientsList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.patientFilter==='High' ? 'active bg-rose-500 border-rose-500 text-white' : 'text-rose-600 bg-rose-50 hover:bg-rose-100'}">Nguy cơ Cao</button>
+                    <button onclick="app.patientFilter='Medium'; renderPatientsList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.patientFilter==='Medium' ? 'active bg-amber-500 border-amber-500 text-white' : 'text-amber-600 bg-amber-50 hover:bg-amber-100'}">Trung bình</button>
+                    <button onclick="app.patientFilter='Low'; renderPatientsList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.patientFilter==='Low' ? 'active bg-emerald-500 border-emerald-500 text-white' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'}">An toàn</button>
+                </div>
+            `;
+
+            container.innerHTML = `
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-2">
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-800">Danh Sách Bệnh Nhân</h1>
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div class="relative w-full sm:w-64">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="search-input" onkeyup="filterTable('patient-table-body')" placeholder="Tìm tên, mã BN..." class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full shadow-sm text-base">
+                        </div>
+                        <button onclick="app.openAddPatient()" class="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors shrink-0 flex items-center justify-center"><i class="fa-solid fa-plus mr-2"></i>Thêm Mới</button>
+                    </div>
+                </div>
+                ${filterPills}
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-230px)] md:h-[calc(100vh-200px)]">
+                    <div class="overflow-auto flex-1 w-full">
+                        <table class="w-full text-left text-sm relative min-w-[800px]">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium sticky top-0 z-10 shadow-sm">
+                                <tr><th class="px-4 md:px-6 py-4">Mã BN</th><th class="px-4 md:px-6 py-4">Họ và Tên</th><th class="px-4 md:px-6 py-4">Giới tính / Tuổi</th><th class="px-4 md:px-6 py-4">Chẩn đoán chính</th><th class="px-4 md:px-6 py-4 text-center">Rủi ro</th><th class="px-4 md:px-6 py-4 text-right">Thao tác</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100" id="patient-table-body">
+                                ${list.map(p => `
+                                    <tr class="hover:bg-slate-50 transition-colors hover-reveal-container">
+                                        <td class="px-4 md:px-6 py-4 font-mono text-slate-500 cursor-pointer" onclick="app.navigate('patient-detail', {id: '${p.id}'})">${p.code}</td>
+                                        <td class="px-4 md:px-6 py-4 font-semibold text-slate-800 cursor-pointer" onclick="app.navigate('patient-detail', {id: '${p.id}'})">${p.name}</td>
+                                        <td class="px-4 md:px-6 py-4 text-slate-600 cursor-pointer" onclick="app.navigate('patient-detail', {id: '${p.id}'})">${p.gender} • ${new Date().getFullYear() - parseInt(p.dob.split('-')[0])}t<br><span class="text-xs text-slate-400"><i class="fa-solid fa-phone mr-1"></i>${p.phone}</span></td>
+                                        <td class="px-4 md:px-6 py-4 text-slate-600 max-w-xs truncate" title="${p.diagnosis}">${p.diagnosis}</td>
+                                        <td class="px-4 md:px-6 py-4 text-center"><span class="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${p.risk_level === 'High' ? 'bg-rose-100 text-rose-700' : p.risk_level === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">${p.risk_level}</span></td>
+                                        <td class="px-4 md:px-6 py-4 text-right">
+                                            <div class="action-group flex justify-end gap-2">
+                                                <button onclick="app.openAddAppointment('${p.id}')" class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100" title="Đặt lịch hẹn"><i class="fa-regular fa-calendar-plus"></i></button>
+                                                <button onclick="app.openAddVisit('${p.id}')" class="w-8 h-8 rounded-full bg-teal-50 text-teal-600 hover:bg-teal-100" title="Thêm lượt khám"><i class="fa-solid fa-stethoscope"></i></button>
+                                                <button onclick="app.navigate('patient-detail', {id: '${p.id}'})" class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200" title="Xem chi tiết"><i class="fa-solid fa-chevron-right"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${list.length === 0 ? '<tr><td colspan="6" class="text-center py-8 text-slate-500">Không tìm thấy dữ liệu.</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
         }
 
-        function renderAppointmentsList() {
-            const container = document.getElementById('view-appointments');
-            let list = window.DB.appointments.filter(a => a.status === app.apptTab).sort((a,b) => new Date(a.date) - new Date(b.date));
-            container.innerHTML = `<div class="flex justify-between mb-4"><h1 class="text-2xl font-bold">Lịch Hẹn</h1><button onclick="app.openAddAppointment()" class="bg-blue-600 text-white px-4 py-2 rounded-lg">+ Tạo Lịch</button></div>
-                <div class="flex gap-4 mb-4"><button onclick="app.apptTab='Scheduled'; app.refreshCurrentView()" class="px-4 py-2 border-b-2 ${app.apptTab==='Scheduled'?'border-blue-600 font-bold':''}">Sắp tới</button><button onclick="app.apptTab='Completed'; app.refreshCurrentView()" class="px-4 py-2 border-b-2 ${app.apptTab==='Completed'?'border-emerald-600 font-bold':''}">Đã khám</button></div>
-                <div class="space-y-3">${list.map(a => { const p = window.DB.patients.find(x=>x.id===a.patient_id); return p ? `<div class="bg-white p-4 rounded-xl border flex justify-between"><div onclick="app.navigate('patient-detail',{id:'${p.id}'})" class="cursor-pointer"><p class="font-bold">${p.name}</p><p class="text-sm text-slate-500">${a.date} - ${a.purpose}</p></div><select onchange="app.markApptStatus('${a.id}', this.value)" class="text-xs border rounded p-1"><option value="Scheduled" ${a.status==='Scheduled'?'selected':''}>Sắp tới</option><option value="Completed" ${a.status==='Completed'?'selected':''}>Xong</option></select></div>`:'' }).join('')}</div>`;
-        }
-
-        function renderBillingList() {
-            const container = document.getElementById('view-billing');
-            let list = window.DB.invoices.sort((a,b) => new Date(b.date) - new Date(a.date));
-            if(app.billFilter !== 'All') list = list.filter(i => i.status === app.billFilter);
-            container.innerHTML = `<div class="flex justify-between mb-4"><h1 class="text-2xl font-bold">Viện Phí</h1><button onclick="app.openAddInvoice()" class="bg-orange-600 text-white px-4 py-2 rounded-lg">+ Tạo HĐ</button></div>
-                <div class="flex gap-4 mb-4"><button onclick="app.billFilter='All'; app.refreshCurrentView()" class="px-4 py-2 border-b-2 ${app.billFilter==='All'?'border-orange-600 font-bold':''}">Tất cả</button><button onclick="app.billFilter='Unpaid'; app.refreshCurrentView()" class="px-4 py-2 border-b-2 ${app.billFilter==='Unpaid'?'border-rose-600 font-bold':''}">Chưa thu</button></div>
-                <div class="space-y-3">${list.map(i => { const p = window.DB.patients.find(x=>x.id===i.patient_id); return p ? `<div class="bg-white p-4 rounded-xl border flex justify-between items-center"><div onclick="app.navigate('patient-detail',{id:'${p.id}', tab:'invoices'})" class="cursor-pointer"><p class="font-bold">${p.name}</p><p class="text-sm text-slate-500">${i.description}</p></div><div class="text-right"><p class="font-bold text-lg">${formatCurrency(i.amount)}</p><select onchange="app.markInvoiceStatus('${i.id}', this.value)" class="text-xs border rounded p-1 ${i.status==='Paid'?'bg-emerald-50':'bg-rose-50'}"><option value="Unpaid" ${i.status==='Unpaid'?'selected':''}>Chưa thu</option><option value="Paid" ${i.status==='Paid'?'selected':''}>Đã thu</option></select></div></div>`:'' }).join('')}</div>`;
-        }
-
-        function renderPatientDetail() {
-            const container = document.getElementById('view-patient-detail');
-            const p = window.DB.patients.find(x=>x.id === app.selectedPatientId); if(!p) return;
-            container.innerHTML = `<div class="bg-white p-6 border-b shrink-0"><div class="flex justify-between mb-4"><button onclick="app.navigate('patients')"><i class="fa-solid fa-arrow-left"></i> Trở về</button><button onclick="app.requestDelete('patient', '${p.id}')" class="text-rose-500">Xóa</button></div>
-                <h1 class="text-2xl font-bold">${p.name} <span class="text-sm font-normal text-slate-500 bg-slate-100 px-2 py-1 rounded">${p.code}</span></h1><p class="text-slate-600 mt-2">${p.gender} | ${p.dob} | SĐT: ${p.phone}</p>
-                <div class="flex gap-4 mt-6 overflow-x-auto border-b"><button onclick="app.setDetailTab('overview')" class="pb-2 border-b-2 ${app.detailTab==='overview'?'border-primary text-primary font-bold':'border-transparent'}">Tổng quan</button><button onclick="app.setDetailTab('visits')" class="pb-2 border-b-2 ${app.detailTab==='visits'?'border-primary text-primary font-bold':'border-transparent'}">Lượt khám</button><button onclick="app.setDetailTab('meds')" class="pb-2 border-b-2 ${app.detailTab==='meds'?'border-primary text-primary font-bold':'border-transparent'}">Đơn thuốc</button><button onclick="app.setDetailTab('appointments')" class="pb-2 border-b-2 ${app.detailTab==='appointments'?'border-primary text-primary font-bold':'border-transparent'}">Lịch hẹn</button><button onclick="app.setDetailTab('invoices')" class="pb-2 border-b-2 ${app.detailTab==='invoices'?'border-primary text-primary font-bold':'border-transparent'}">Viện phí</button></div></div>
-                <div id="detail-tab-content" class="p-6 flex-1 overflow-y-auto"></div>`;
-            renderPatientDetailTabs();
-        }
-
-        function renderPatientDetailTabs() {
-            const c = document.getElementById('detail-tab-content'); const p = window.DB.patients.find(x=>x.id === app.selectedPatientId);
-            if(app.detailTab === 'overview') {
-                const v = window.DB.visits.filter(x=>x.patient_id===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
-                c.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm border"><h3 class="font-bold mb-2">Chẩn đoán:</h3><p>${p.diagnosis}</p><h3 class="font-bold mt-4 mb-2">Lần khám gần nhất:</h3>${v ? `<p>${v.date}: ${v.complaint}</p>`:'Chưa có'}</div>`;
-            } else if(app.detailTab === 'visits') {
-                c.innerHTML = `<button onclick="app.openAddVisit()" class="mb-4 bg-teal-600 text-white px-4 py-2 rounded">Thêm Khám</button><div class="space-y-4">${window.DB.visits.filter(x=>x.patient_id===p.id).map(v=>`<div class="p-4 bg-white border rounded"><p class="font-bold">${v.date}</p><p>${v.complaint}</p></div>`).join('')}</div>`;
-            } else if(app.detailTab === 'meds') {
-                c.innerHTML = `<div class="mb-4"><button onclick="app.printPrescription()" class="bg-slate-200 px-4 py-2 rounded mr-2">In Đơn</button><button onclick="app.openAddMedication()" class="bg-purple-600 text-white px-4 py-2 rounded">Kê thuốc</button></div><div class="space-y-2">${window.DB.medications.filter(x=>x.patient_id===p.id).map(m=>`<div class="p-4 bg-white border rounded flex justify-between"><div><p class="font-bold">${m.name}</p><p class="text-sm">${m.route} - ${m.freq}</p></div><button onclick="app.requestDelete('medication','${m.id}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></div>`).join('')}</div>`;
-            } else if(app.detailTab === 'appointments') {
-                 c.innerHTML = `<button onclick="app.openAddAppointment()" class="mb-4 bg-blue-600 text-white px-4 py-2 rounded">Tạo lịch</button><div class="space-y-2">${window.DB.appointments.filter(x=>x.patient_id===p.id).map(a=>`<div class="p-4 bg-white border rounded"><p class="font-bold">${a.date}</p><p>${a.purpose}</p></div>`).join('')}</div>`;
-            } else if(app.detailTab === 'invoices') {
-                c.innerHTML = `<button onclick="app.openAddInvoice()" class="mb-4 bg-orange-600 text-white px-4 py-2 rounded">Tạo HĐ</button><div class="space-y-2">${window.DB.invoices.filter(x=>x.patient_id===p.id).map(i=>`<div class="p-4 bg-white border rounded flex justify-between"><p>${i.date} - ${i.description}</p><p class="font-bold">${formatCurrency(i.amount)}</p></div>`).join('')}</div>`;
+        window.filterTable = function(tbodyId) {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const rows = document.getElementById(tbodyId).getElementsByTagName('tr');
+            for(let row of rows) {
+                if(row.innerText.toLowerCase().includes(query)) row.style.display = 'table-row'; else row.style.display = 'none';
             }
         }
 
-        // Bắt đầu ứng dụng
+        window.renderAppointmentsList = function() {
+            const container = document.getElementById('view-appointments');
+            const today = app.getToday();
+            let displayList = DB.appointments.filter(a => a.status === app.apptTab);
+            displayList.sort((a,b) => app.apptTab === 'Scheduled' ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date));
+
+            const countSch = DB.appointments.filter(a=>a.status==='Scheduled').length; const countCom = DB.appointments.filter(a=>a.status==='Completed').length; const countMis = DB.appointments.filter(a=>a.status==='Missed').length; const countCan = DB.appointments.filter(a=>a.status==='Cancelled').length;
+
+            container.innerHTML = `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 md:mb-6">
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-800">Quản Lý Lịch Hẹn</h1>
+                    <button onclick="app.openAddAppointment()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex justify-center"><i class="fa-regular fa-calendar-plus mr-2"></i>Tạo Lịch Hẹn</button>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-170px)]">
+                    <div class="flex border-b border-slate-200 px-2 md:px-4 bg-slate-50 overflow-x-auto hide-scrollbar">
+                        <button onclick="app.apptTab='Scheduled'; renderAppointmentsList()" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${app.apptTab==='Scheduled' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'}">Sắp tới (${countSch})</button>
+                        <button onclick="app.apptTab='Completed'; renderAppointmentsList()" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${app.apptTab==='Completed' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700'}">Đã khám (${countCom})</button>
+                        <button onclick="app.apptTab='Missed'; renderAppointmentsList()" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${app.apptTab==='Missed' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500 hover:text-slate-700'}">Bỏ lỡ (${countMis})</button>
+                        <button onclick="app.apptTab='Cancelled'; renderAppointmentsList()" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${app.apptTab==='Cancelled' ? 'border-slate-400 text-slate-600' : 'border-transparent text-slate-500 hover:text-slate-700'}">Đã hủy (${countCan})</button>
+                    </div>
+                    <div class="overflow-y-auto flex-1 p-3 md:p-4 bg-slate-50/50">
+                        <div class="space-y-3">
+                            ${displayList.map(apt => {
+                                const p = DB.patients.find(x => x.id === apt.patient_id); if(!p) return '';
+                                const isPastDue = apt.status === 'Scheduled' && apt.date < today;
+                                return `
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 bg-white border ${isPastDue ? 'border-rose-300 shadow-sm' : 'border-slate-200 shadow-sm'} rounded-xl hover-reveal-container transition-all">
+                                    <div class="flex items-start gap-3 md:gap-4 flex-1">
+                                        <div class="w-10 h-10 md:w-12 md:h-12 rounded-lg border ${aptHelpers.getBadgeClass(apt.status)} flex flex-col items-center justify-center font-bold shrink-0"><span class="text-[10px] uppercase font-semibold leading-none mb-1">Th ${apt.date.split('-')[1]}</span><span class="text-base md:text-lg leading-none">${apt.date.split('-')[2]}</span></div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2"><h4 class="font-bold text-slate-800 cursor-pointer hover:text-primary transition-colors truncate" onclick="app.navigate('patient-detail', {id: '${p.id}'})">${p.name}</h4>${isPastDue ? '<span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full animate-pulse">Quá hạn</span>' : ''}</div>
+                                            <p class="text-sm text-slate-600 mt-1 truncate"><i class="fa-solid fa-notes-medical text-slate-400 mr-1.5 w-4 text-center"></i> ${apt.purpose}</p>
+                                            <p class="text-xs text-slate-500 mt-0.5 truncate"><i class="fa-solid fa-phone text-slate-400 mr-1.5 w-4 text-center"></i> ${p.phone}</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 sm:mt-0 flex items-center gap-3 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 w-full sm:w-auto justify-between sm:justify-end">
+                                        <div class="action-group flex gap-1 sm:mr-4">
+                                            <button onclick="app.openEditAppointment('${apt.id}')" class="w-8 h-8 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                                            <button onclick="app.requestDelete('appointment', '${apt.id}')" class="w-8 h-8 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50" title="Xóa"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                        <select onchange="app.markApptStatus('${apt.id}', this.value)" class="text-xs font-semibold rounded-md px-2 py-1.5 border border-slate-200 bg-white focus:outline-none focus:border-primary text-slate-700 shadow-sm cursor-pointer">
+                                            <option value="Scheduled" ${apt.status==='Scheduled'?'selected':''}>Sắp tới</option>
+                                            <option value="Completed" ${apt.status==='Completed'?'selected':''}>Hoàn tất</option>
+                                            <option value="Missed" ${apt.status==='Missed'?'selected':''}>Bỏ lỡ</option>
+                                            <option value="Cancelled" ${apt.status==='Cancelled'?'selected':''}>Đã hủy</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
+                            ${displayList.length === 0 ? `<div class="text-center py-12 text-slate-400"><i class="fa-regular fa-calendar-xmark text-4xl mb-3 block"></i>Không có dữ liệu trong mục này.</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.renderBillingList = function() {
+            const container = document.getElementById('view-billing');
+            let list = DB.invoices;
+            if(app.billFilter !== 'All') list = list.filter(i => i.status === app.billFilter);
+            list.sort((a,b) => new Date(b.date) - new Date(a.date));
+            const totalRevenue = DB.invoices.filter(i => i.status === 'Paid').reduce((sum, i) => sum + Number(i.amount), 0);
+            const pendingRevenue = DB.invoices.filter(i => i.status === 'Unpaid').reduce((sum, i) => sum + Number(i.amount), 0);
+
+            const filterPills = `
+                <div class="flex gap-2 overflow-x-auto hide-scrollbar py-1 mb-4">
+                    <button onclick="app.billFilter='All'; renderBillingList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.billFilter==='All' ? 'active bg-slate-800 text-white border-slate-800' : 'text-slate-600 bg-white hover:bg-slate-50'}">Tất cả Hóa đơn</button>
+                    <button onclick="app.billFilter='Unpaid'; renderBillingList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.billFilter==='Unpaid' ? 'active bg-rose-500 text-white border-rose-500' : 'text-rose-600 bg-rose-50 hover:bg-rose-100'}">Chưa thanh toán</button>
+                    <button onclick="app.billFilter='Paid'; renderBillingList()" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 transition-colors whitespace-nowrap ${app.billFilter==='Paid' ? 'active bg-emerald-500 text-white border-emerald-500' : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'}">Đã thanh toán</button>
+                </div>
+            `;
+
+            container.innerHTML = `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h1 class="text-xl md:text-2xl font-bold text-slate-800">Quản Lý Viện Phí</h1>
+                    <button onclick="app.openAddInvoice()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex justify-center items-center"><i class="fa-solid fa-plus mr-2"></i>Tạo Hóa Đơn</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+                        <div><p class="text-sm font-medium text-slate-500">Doanh thu đã thu</p><h3 class="text-2xl font-bold text-emerald-600">${formatCurrency(totalRevenue)}</h3></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                        <div><p class="text-sm font-medium text-slate-500">Chờ thanh toán</p><h3 class="text-2xl font-bold text-rose-600">${formatCurrency(pendingRevenue)}</h3></div>
+                    </div>
+                </div>
+                ${filterPills}
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-320px)] md:h-[calc(100vh-280px)]">
+                    <div class="overflow-auto flex-1 w-full p-2 md:p-4 bg-slate-50/50">
+                        <div class="space-y-3">
+                            ${list.map(inv => {
+                                const p = DB.patients.find(x => x.id === inv.patient_id); if(!p) return '';
+                                return `
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-slate-200 shadow-sm rounded-xl hover-reveal-container transition-all">
+                                    <div class="flex items-start gap-4 flex-1">
+                                        <div class="w-12 h-12 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-xl shrink-0 border border-orange-100"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <h4 class="font-bold text-slate-800 cursor-pointer hover:text-primary transition-colors truncate" onclick="app.navigate('patient-detail', {id: '${p.id}'})">${p.name}</h4><span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">${p.code}</span>
+                                            </div>
+                                            <p class="text-sm text-slate-600 mt-1 truncate">${inv.description}</p><p class="text-xs text-slate-500 mt-0.5"><i class="fa-regular fa-calendar mr-1"></i> ${inv.date}</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 sm:mt-0 flex flex-col sm:items-end shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 w-full sm:w-auto">
+                                        <div class="flex items-center justify-between sm:justify-end w-full mb-2"><span class="font-bold text-lg text-slate-800">${formatCurrency(inv.amount)}</span></div>
+                                        <div class="flex items-center justify-between sm:justify-end w-full gap-3">
+                                            <select onchange="app.markInvoiceStatus('${inv.id}', this.value)" class="text-xs font-semibold rounded-md px-2 py-1.5 border border-slate-200 ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'} focus:outline-none cursor-pointer">
+                                                <option value="Unpaid" ${inv.status==='Unpaid'?'selected':''}>Chưa thanh toán</option><option value="Paid" ${inv.status==='Paid'?'selected':''}>Đã thanh toán</option>
+                                            </select>
+                                            <div class="action-group flex gap-1">
+                                                <button onclick="app.openEditInvoice('${inv.id}')" class="w-7 h-7 rounded text-slate-400 hover:text-orange-600 hover:bg-orange-50"><i class="fa-solid fa-pen text-xs"></i></button>
+                                                <button onclick="app.requestDelete('invoice', '${inv.id}')" class="w-7 h-7 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i class="fa-solid fa-trash text-xs"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
+                            ${list.length === 0 ? '<div class="text-center py-12 text-slate-400 bg-white rounded-xl border border-dashed border-slate-200"><i class="fa-solid fa-file-invoice-dollar text-4xl mb-3 block"></i>Không có hóa đơn nào.</div>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.renderPatientDetail = function() {
+            const container = document.getElementById('view-patient-detail');
+            const p = app.selectedPatient; if(!p) return;
+            const age = new Date().getFullYear() - parseInt(p.dob.split('-')[0]);
+
+            container.innerHTML = `
+                <div class="bg-white border-b border-slate-200 px-4 md:px-6 py-4 md:py-6 sticky top-0 z-10 shadow-sm shrink-0">
+                    <div class="flex justify-between items-center mb-4">
+                        <button onclick="app.navigate('patients')" class="text-slate-500 hover:text-primary text-sm font-medium flex items-center transition-colors"><i class="fa-solid fa-arrow-left mr-2"></i> Trở về</button>
+                        <button onclick="app.requestDelete('patient', '${p.id}')" class="text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded text-sm font-medium transition-colors"><i class="fa-solid fa-trash-can mr-1"></i> Xóa Hồ Sơ</button>
+                    </div>
+                    <div class="flex flex-col md:flex-row justify-between gap-4">
+                        <div class="flex items-start gap-3 md:gap-4">
+                            <div class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-teal-400 to-primary text-white flex items-center justify-center text-xl md:text-2xl font-bold shadow-md shrink-0">${p.name.charAt(0)}</div>
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2 md:gap-3 mb-1">
+                                    <h1 class="text-lg md:text-2xl font-bold text-slate-800">${p.name}</h1><span class="px-2 py-0.5 rounded text-[10px] md:text-xs font-mono bg-slate-100 text-slate-600 border border-slate-200">${p.code}</span>
+                                    ${p.risk_level === 'High' ? `<span class="px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200 shadow-sm"><i class="fa-solid fa-circle-exclamation mr-1"></i>Nguy Cơ Cao</span>` : ''}
+                                </div>
+                                <div class="text-xs md:text-sm text-slate-600 flex flex-wrap gap-x-3 md:gap-x-4 gap-y-1 mt-1 md:mt-2">
+                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-venus-mars text-slate-400"></i> ${p.gender}</span><span class="flex items-center gap-1.5"><i class="fa-solid fa-cake-candles text-slate-400"></i> ${p.dob} (${age}t)</span><span class="flex items-center gap-1.5"><i class="fa-solid fa-phone text-slate-400"></i> ${p.phone}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 shrink-0 items-start w-full md:w-auto mt-2 md:mt-0">
+                            <button onclick="app.openEditPatient()" class="flex-1 md:flex-none px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm justify-center flex items-center"><i class="fa-solid fa-pen mr-2 text-slate-400"></i>Sửa</button>
+                            <button onclick="app.openAddVisit('${p.id}')" class="flex-1 md:flex-none px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-secondary transition-colors shadow-sm justify-center flex items-center"><i class="fa-solid fa-stethoscope mr-2"></i>Khám Mới</button>
+                        </div>
+                    </div>
+                    <div class="flex border-b border-slate-200 mt-6 md:mt-8 gap-4 md:gap-6 -mb-4 md:-mb-6 overflow-x-auto hide-scrollbar pb-2">
+                        <button onclick="app.setDetailTab('overview')" class="tab-btn px-1 py-2 md:py-3 text-sm text-slate-500 hover:text-slate-800 transition-colors whitespace-nowrap ${app.detailTab === 'overview' ? 'active' : ''}">Tổng Quan</button>
+                        <button onclick="app.setDetailTab('visits')" class="tab-btn px-1 py-2 md:py-3 text-sm text-slate-500 hover:text-slate-800 transition-colors whitespace-nowrap ${app.detailTab === 'visits' ? 'active' : ''}">Lượt Khám <span class="ml-1 bg-slate-100 text-slate-600 py-0.5 px-2 rounded-full text-[10px] font-bold">${DB.visits.filter(v=>v.patient_id === p.id).length}</span></button>
+                        <button onclick="app.setDetailTab('meds')" class="tab-btn px-1 py-2 md:py-3 text-sm text-slate-500 hover:text-slate-800 transition-colors whitespace-nowrap ${app.detailTab === 'meds' ? 'active' : ''}">Đơn Thuốc <span class="ml-1 bg-purple-100 text-purple-700 py-0.5 px-2 rounded-full text-[10px] font-bold">${DB.medications.filter(m=>m.patient_id === p.id).length}</span></button>
+                        <button onclick="app.setDetailTab('appointments')" class="tab-btn px-1 py-2 md:py-3 text-sm text-slate-500 hover:text-slate-800 transition-colors whitespace-nowrap ${app.detailTab === 'appointments' ? 'active' : ''}">Lịch Hẹn <span class="ml-1 bg-blue-100 text-blue-700 py-0.5 px-2 rounded-full text-[10px] font-bold">${DB.appointments.filter(a=>a.patient_id === p.id).length}</span></button>
+                        <button onclick="app.setDetailTab('invoices')" class="tab-btn px-1 py-2 md:py-3 text-sm text-slate-500 hover:text-slate-800 transition-colors whitespace-nowrap ${app.detailTab === 'invoices' ? 'active' : ''}">Viện Phí <span class="ml-1 bg-orange-100 text-orange-700 py-0.5 px-2 rounded-full text-[10px] font-bold">${DB.invoices.filter(i=>i.patient_id === p.id).length}</span></button>
+                    </div>
+                </div>
+                <div id="detail-tab-content" class="p-4 md:p-8 overflow-y-auto flex-1"></div>
+            `;
+            renderPatientDetailTabs();
+        }
+
+        window.renderPatientDetailTabs = function() {
+            const container = document.getElementById('detail-tab-content');
+            const p = app.selectedPatient;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'border-b-2', 'border-primary', 'text-primary', 'font-semibold'));
+            const activeBtnIndex = ['overview', 'visits', 'meds', 'appointments', 'invoices'].indexOf(app.detailTab);
+            if(activeBtnIndex >= 0) document.querySelectorAll('.tab-btn')[activeBtnIndex].classList.add('active', 'border-b-2', 'border-primary', 'text-primary', 'font-semibold');
+
+            const pVisits = DB.visits.filter(v => v.patient_id === p.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+            const pApts = DB.appointments.filter(a => a.patient_id === p.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+            const pMeds = DB.medications.filter(m => m.patient_id === p.id); 
+            const pInvs = DB.invoices.filter(i => i.patient_id === p.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            let html = '';
+            if (app.detailTab === 'overview') {
+                const latestVisit = pVisits[0];
+                html = `
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 fade-in">
+                        <div class="bg-white p-5 md:p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 class="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm uppercase tracking-wider flex items-center"><i class="fa-solid fa-notes-medical text-primary mr-2"></i> Chẩn Đoán Nền</h3>
+                            <div class="bg-amber-50 border border-amber-100 p-3 md:p-4 rounded-lg"><p class="text-sm md:text-base text-slate-800 font-medium">${p.diagnosis || 'Chưa ghi nhận chẩn đoán'}</p></div>
+                        </div>
+                        <div class="bg-white p-5 md:p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div class="flex justify-between items-center mb-3 md:mb-4"><h3 class="font-bold text-slate-800 text-xs md:text-sm uppercase tracking-wider flex items-center"><i class="fa-solid fa-clock-rotate-left text-primary mr-2"></i> Lần Khám Gần Nhất</h3></div>
+                            ${latestVisit ? `
+                                <div class="space-y-2 md:space-y-3">
+                                    <p class="text-xs md:text-sm border-b border-slate-100 pb-2"><strong class="text-slate-500 mr-2 w-16 md:w-20 inline-block">Ngày:</strong> <span class="font-medium">${latestVisit.date}</span></p>
+                                    <p class="text-xs md:text-sm border-b border-slate-100 pb-2"><strong class="text-slate-500 mr-2 w-16 md:w-20 inline-block">Lý do:</strong> ${latestVisit.complaint}</p>
+                                    <p class="text-xs md:text-sm"><strong class="text-slate-500 mr-2 w-16 md:w-20 inline-block">Đánh giá:</strong> ${latestVisit.assessment || '-'}</p>
+                                </div>
+                                <button onclick="app.setDetailTab('visits')" class="w-full mt-3 md:mt-4 text-center text-xs md:text-sm text-primary py-2 hover:bg-slate-50 rounded font-medium transition-colors">Xem lịch sử chi tiết &rarr;</button>
+                            ` : '<p class="text-sm text-slate-500 italic text-center py-4">Chưa có dữ liệu lượt khám.</p>'}
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (app.detailTab === 'visits') {
+                html = `
+                    <div class="fade-in max-w-4xl mx-auto">
+                        <div class="flex justify-between items-center mb-4 md:mb-6"><h2 class="text-lg md:text-xl font-bold text-slate-800">Lịch Sử Khám Bệnh</h2></div>
+                        <div class="space-y-4 md:space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                            ${pVisits.map((v, index) => `
+                                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group hover-reveal-container">
+                                    <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-slate-50 bg-white ${index===0 ? 'text-primary border-teal-100' : 'text-slate-400'} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 hidden md:flex"><i class="fa-solid fa-stethoscope text-sm"></i></div>
+                                    <div class="w-full md:w-[calc(50%-2.5rem)] bg-white p-4 md:p-5 rounded-xl border ${index===0 ? 'border-primary/30 shadow-md' : 'border-slate-200 shadow-sm'} hover:shadow-md transition-shadow">
+                                        <div class="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
+                                            <p class="font-bold ${index===0 ? 'text-primary' : 'text-slate-700'}">${v.date}</p>
+                                            <div class="action-group flex gap-1 -mt-1 -mr-2 bg-white rounded-lg shadow-sm border border-slate-100 px-1 py-0.5">
+                                                <button onclick="app.openEditVisit('${v.id}')" class="w-7 h-7 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50"><i class="fa-solid fa-pen text-xs"></i></button>
+                                                <button onclick="app.requestDelete('visit', '${v.id}')" class="w-7 h-7 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i class="fa-solid fa-trash text-xs"></i></button>
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div><p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lý do khám</p><p class="text-sm text-slate-800">${v.complaint}</p></div>
+                                            ${v.assessment ? `<div><p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Đánh giá</p><p class="text-sm text-slate-800">${v.assessment}</p></div>` : ''}
+                                            ${v.plan ? `<div class="bg-slate-50 p-2 rounded border border-slate-100 mt-2"><p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Kế hoạch</p><p class="text-sm text-slate-800 font-medium">${v.plan}</p></div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${pVisits.length === 0 ? '<div class="text-center py-10 text-slate-500 relative z-10 bg-slate-50 border border-slate-200 rounded-xl border-dashed">Bệnh nhân chưa có lịch sử khám bệnh.</div>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            else if (app.detailTab === 'meds') {
+                html = `
+                    <div class="fade-in max-w-4xl mx-auto">
+                        <div class="flex justify-between items-center mb-4 md:mb-6">
+                            <h2 class="text-lg md:text-xl font-bold text-slate-800">Đơn Thuốc</h2>
+                            <div>
+                                <button onclick="app.printPrescription()" class="text-xs md:text-sm bg-slate-100 text-slate-700 px-3 md:px-4 py-2 rounded-lg shadow-sm border border-slate-200 hover:bg-slate-200 transition-colors mr-2"><i class="fa-solid fa-print mr-1 md:mr-2"></i>In Đơn Thuốc</button>
+                                <button onclick="app.openAddMedication()" class="text-xs md:text-sm bg-purple-600 text-white px-3 md:px-4 py-2 rounded-lg shadow-sm hover:bg-purple-700 transition-colors"><i class="fa-solid fa-plus mr-1 md:mr-2"></i>Kê Thuốc</button>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <table class="w-full text-left text-sm">
+                                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium hidden md:table-header-group">
+                                    <tr><th class="px-6 py-4">Tên Thuốc</th><th class="px-6 py-4">Liều dùng</th><th class="px-6 py-4">Trạng thái</th><th class="px-6 py-4 text-right">Thao tác</th></tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 block md:table-row-group">
+                                    ${pMeds.map(m => `
+                                        <tr class="hover:bg-slate-50 transition-colors hover-reveal-container block md:table-row p-4 md:p-0 border-b border-slate-100 md:border-b-0 relative">
+                                            <td class="md:px-6 md:py-4 mb-2 md:mb-0 block md:table-cell">
+                                                <p class="font-bold text-slate-800">${m.name}</p>${m.note ? `<p class="text-xs text-slate-500 mt-1">${m.note}</p>` : ''}
+                                            </td>
+                                            <td class="md:px-6 md:py-4 mb-3 md:mb-0 block md:table-cell text-slate-600"><span class="md:hidden font-medium mr-2">Cách dùng:</span>${m.route} • ${m.freq}</td>
+                                            <td class="md:px-6 md:py-4 block md:table-cell"><span class="px-2 py-1 rounded text-xs font-semibold ${m.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">${m.status === 'Active' ? 'Đang dùng' : 'Đã ngưng'}</span></td>
+                                            <td class="md:px-6 md:py-4 md:text-right absolute md:relative top-4 right-4 md:top-auto md:right-auto">
+                                                <div class="action-group flex justify-end gap-1">
+                                                    <button onclick="app.openEditMedication('${m.id}')" class="w-8 h-8 rounded text-slate-400 hover:text-purple-600 hover:bg-purple-50"><i class="fa-solid fa-pen text-sm"></i></button>
+                                                    <button onclick="app.requestDelete('medication', '${m.id}')" class="w-8 h-8 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i class="fa-solid fa-trash text-sm"></i></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                    ${pMeds.length === 0 ? '<tr class="block md:table-row"><td colspan="4" class="text-center py-10 text-slate-500">Chưa có thông tin đơn thuốc.</td></tr>' : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            else if (app.detailTab === 'appointments') {
+                html = `
+                    <div class="fade-in max-w-4xl mx-auto">
+                        <div class="flex justify-between items-center mb-4 md:mb-6">
+                            <h2 class="text-lg md:text-xl font-bold text-slate-800">Lịch Hẹn</h2>
+                            <button onclick="app.openAddAppointment('${p.id}')" class="text-xs md:text-sm bg-blue-600 text-white px-3 md:px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 transition-colors"><i class="fa-regular fa-calendar-plus mr-1 md:mr-2"></i>Tạo Lịch</button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${pApts.map(apt => `
+                                <div class="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col hover-reveal-container transition-all">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex items-center gap-2"><i class="fa-regular fa-calendar text-blue-500"></i><p class="font-bold text-slate-800">${apt.date}</p></div>
+                                        <span class="px-2 py-0.5 ${aptHelpers.getBadgeClass(apt.status)} border text-[10px] font-bold rounded-full uppercase tracking-wider">${aptHelpers.getText(apt.status)}</span>
+                                    </div>
+                                    <p class="text-sm text-slate-600 mb-4 flex-1">${apt.purpose}</p>
+                                    <div class="flex justify-between items-center border-t border-slate-100 pt-3 mt-auto">
+                                        <div class="action-group flex gap-1">
+                                            <button onclick="app.openEditAppointment('${apt.id}')" class="w-8 h-8 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50"><i class="fa-solid fa-pen text-sm"></i></button>
+                                            <button onclick="app.requestDelete('appointment', '${apt.id}')" class="w-8 h-8 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i class="fa-solid fa-trash text-sm"></i></button>
+                                        </div>
+                                        <select onchange="app.markApptStatus('${apt.id}', this.value)" class="text-xs font-semibold rounded-md px-2 py-1 border border-slate-200 bg-slate-50 focus:outline-none focus:border-primary text-slate-600 shadow-sm cursor-pointer">
+                                            <option value="Scheduled" ${apt.status==='Scheduled'?'selected':''}>Sắp tới</option><option value="Completed" ${apt.status==='Completed'?'selected':''}>Hoàn tất</option><option value="Missed" ${apt.status==='Missed'?'selected':''}>Bỏ lỡ</option><option value="Cancelled" ${apt.status==='Cancelled'?'selected':''}>Đã hủy</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${pApts.length === 0 ? '<div class="col-span-full text-center py-12 text-slate-400 bg-white rounded-xl border border-dashed border-slate-200">Chưa có lịch hẹn nào được ghi nhận.</div>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            else if (app.detailTab === 'invoices') {
+                html = `
+                    <div class="fade-in max-w-4xl mx-auto">
+                        <div class="flex justify-between items-center mb-4 md:mb-6">
+                            <h2 class="text-lg md:text-xl font-bold text-slate-800">Lịch Sử Viện Phí</h2>
+                            <button onclick="app.openAddInvoice('${p.id}')" class="text-xs md:text-sm bg-orange-600 text-white px-3 md:px-4 py-2 rounded-lg shadow-sm hover:bg-orange-700 transition-colors"><i class="fa-solid fa-plus mr-1 md:mr-2"></i>Tạo Hóa Đơn</button>
+                        </div>
+                        <div class="space-y-3">
+                            ${pInvs.map(inv => `
+                                <div class="bg-white p-4 border border-slate-200 rounded-xl shadow-sm flex flex-col sm:flex-row justify-between sm:items-center hover-reveal-container gap-3">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <p class="font-bold text-slate-800">${formatCurrency(inv.amount)}</p><span class="px-2 py-0.5 rounded text-[10px] font-semibold border ${inv.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}">${inv.status === 'Paid' ? 'Đã thu' : 'Chưa thu'}</span>
+                                        </div>
+                                        <p class="text-sm text-slate-600">${inv.description}</p><p class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-calendar mr-1"></i> ${inv.date}</p>
+                                    </div>
+                                    <div class="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+                                        <select onchange="app.markInvoiceStatus('${inv.id}', this.value)" class="text-xs font-semibold rounded-md px-2 py-1.5 border border-slate-200 bg-white focus:outline-none cursor-pointer">
+                                            <option value="Unpaid" ${inv.status==='Unpaid'?'selected':''}>Chưa thanh toán</option><option value="Paid" ${inv.status==='Paid'?'selected':''}>Đã thanh toán</option>
+                                        </select>
+                                        <div class="action-group flex gap-1">
+                                            <button onclick="app.openEditInvoice('${inv.id}')" class="w-8 h-8 rounded text-slate-400 hover:text-orange-600 hover:bg-orange-50"><i class="fa-solid fa-pen text-xs"></i></button>
+                                            <button onclick="app.requestDelete('invoice', '${inv.id}')" class="w-8 h-8 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"><i class="fa-solid fa-trash text-xs"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${pInvs.length === 0 ? '<div class="text-center py-10 text-slate-500 bg-white border border-dashed border-slate-200 rounded-xl">Không có hóa đơn nào.</div>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // Tải lại view hiện hành (gọi từ Firebase khi có dữ liệu mới)
+        window.refreshCurrentView = function() {
+            if (app.currentView === 'dashboard') renderDashboard();
+            else if (app.currentView === 'patients') renderPatientsList();
+            else if (app.currentView === 'appointments') renderAppointmentsList();
+            else if (app.currentView === 'billing') renderBillingList();
+            else if (app.currentView === 'patient-detail') renderPatientDetail();
+        }
+
+    </script>
+
+    <!-- MODULE FIREBASE: CHỊU TRÁCH NHIỆM ĐỒNG BỘ REAL-TIME -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Cấu hình Firebase (Lấy từ biến môi trường của nền tảng, hoặc bạn thay Config của bạn vào đây khi up lên Github)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDAh_SL1pq4gmMKy8zFUn2f6nkHzlkwDkA",
+            authDomain: "medicarepro-8588c.firebaseapp.com",
+            projectId: "medicarepro-8588c", 
+            storageBucket: "medicarepro-8588c.firebasestorage.app",
+            messagingSenderId: "541330848431",
+            appId: "1:541330848431:web:850f7cfd8a631e4cccb25a",
+            measurementId: "G-HQ3B5PZ2XJ"
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
+        const db = getFirestore(firebaseApp);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'medicare-pro-v1';
+
+        // Ghi đè hàm saveDB: Giờ đây nó sẽ lưu thẳng lên Đám mây thay vì localStorage
+        window.saveDB = async () => {
+            if (!auth.currentUser) return;
+            try {
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'tables');
+                // Chuyển Object/Array thành chuỗi JSON để đảm bảo không bị lỗi format của Firestore
+                await setDoc(doc(colRef, 'patients'), { data: JSON.stringify(DB.patients) });
+                await setDoc(doc(colRef, 'visits'), { data: JSON.stringify(DB.visits) });
+                await setDoc(doc(colRef, 'appointments'), { data: JSON.stringify(DB.appointments) });
+                await setDoc(doc(colRef, 'medications'), { data: JSON.stringify(DB.medications) });
+                await setDoc(doc(colRef, 'invoices'), { data: JSON.stringify(DB.invoices) });
+            } catch (error) {
+                console.error("Lỗi đồng bộ Firebase:", error);
+                ui.showToast('Lỗi khi lưu dữ liệu lên hệ thống đám mây!', 'error');
+            }
+        };
+
+        // Hàm Đăng nhập Ẩn danh (Bắt buộc phải có để thao tác Database)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Lỗi Auth Firebase:", error);
+                document.getElementById('loading-overlay').innerHTML = `<p class="text-rose-500 font-bold">Lỗi kết nối CSDL, vui lòng f5 lại trang.</p>`;
+            }
+        };
+
+        let isInitialLoad = true;
+
+        // Lắng nghe trạng thái đăng nhập và Lắng nghe Dữ liệu Real-time
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'tables');
+                
+                // onSnapshot tự động kích hoạt mỗi khi có ai đó (hoặc thiết bị khác) gọi hàm saveDB
+                onSnapshot(colRef, (snapshot) => {
+                    let hasChanges = false;
+                    
+                    // Cập nhật lại mảng DB cục bộ bằng dữ liệu từ Cloud
+                    snapshot.docChanges().forEach((change) => {
+                        const tableName = change.doc.id;
+                        if (window.DB[tableName] !== undefined) {
+                            const cloudData = change.doc.data().data;
+                            if (cloudData) {
+                                window.DB[tableName] = JSON.parse(cloudData);
+                                hasChanges = true;
+                            }
+                        }
+                    });
+
+                    if (isInitialLoad) {
+                        // Nếu là lần đầu mở App mà Cloud chưa có gì -> Tạo dữ liệu mẫu rồi Đẩy lên Cloud
+                        if (DB.patients.length === 0) {
+                            seedDatabase(25); 
+                            window.saveDB(); 
+                        }
+                        
+                        // Tắt màn hình loading và vào App
+                        app.navigate('dashboard');
+                        const loading = document.getElementById('loading-overlay');
+                        loading.style.opacity = '0';
+                        setTimeout(() => loading.style.display = 'none', 500);
+                        isInitialLoad = false;
+                    } else if (hasChanges) {
+                        // Nếu máy khác thay đổi dữ liệu -> render lại UI mà không cần F5
+                        refreshCurrentView();
+                    }
+                }, (error) => {
+                    console.error("Lỗi đọc dữ liệu:", error);
+                });
+            }
+        });
+
+        // Kích hoạt kết nối
         initAuth();
     </script>
 </body>
