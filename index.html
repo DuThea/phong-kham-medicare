@@ -405,6 +405,89 @@
             uploadVisitFiles: async () => []
         };
 
+        // QUẢN LÝ LƯU TRỮ FILE CỤC BỘ (Tránh lỗi giới hạn của Firebase Storage)
+        window.localFileStorage = {
+            db: null,
+            init: function() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('MedicareFiles', 1);
+                    req.onupgradeneeded = (e) => {
+                        e.target.result.createObjectStore('attachments');
+                    };
+                    req.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve();
+                    };
+                    req.onerror = (e) => reject(e);
+                });
+            },
+            saveFile: function(fileId, file) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) return resolve();
+                    const tx = this.db.transaction('attachments', 'readwrite');
+                    tx.objectStore('attachments').put(file, fileId);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e);
+                });
+            },
+            getFile: function(fileId) {
+                return new Promise((resolve, reject) => {
+                    if (!this.db) return resolve(null);
+                    const tx = this.db.transaction('attachments', 'readonly');
+                    const req = tx.objectStore('attachments').get(fileId);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = (e) => reject(e);
+                });
+            }
+        };
+        window.localFileStorage.init().catch(console.error);
+
+        window.resolveAttachmentUrls = async function(visits) {
+            for (let v of visits) {
+                if (v.attachments) {
+                    for (let att of v.attachments) {
+                        if (att.isLocal && att.id) {
+                            try {
+                                const file = await window.localFileStorage.getFile(att.id);
+                                if (file) {
+                                    att.url = URL.createObjectURL(file); // Khôi phục URL xem trực tiếp
+                                }
+                            } catch (e) {
+                                console.error('Không thể tải file local', e);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        window.storageApi = {
+            uploadVisitFiles: async (files = [], patient = null, visitId = 'visit') => {
+                const uploaded = [];
+                for (const file of files) {
+                    if ((file.size || 0) > 15 * 1024 * 1024) {
+                        throw new Error(`Tệp "${file.name}" vượt quá 15MB`);
+                    }
+                    const fileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                    try {
+                        await window.localFileStorage.saveFile(fileId, file);
+                        uploaded.push({
+                            id: fileId,
+                            name: file.name || 'Tài liệu',
+                            size: file.size || 0,
+                            type: file.type || '',
+                            url: URL.createObjectURL(file),
+                            isLocal: true,
+                            uploaded_at: new Date().toISOString()
+                        });
+                    } catch (error) {
+                        throw new Error(`Không thể lưu file "${file.name}". Lỗi bộ nhớ thiết bị.`);
+                    }
+                }
+                return uploaded;
+            }
+        };
+
         window.escapeHtml = function(value = '') {
             return String(value)
                 .replaceAll('&', '&amp;')
@@ -1329,7 +1412,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // Cấu hình Firebase (Lấy từ biến môi trường của nền tảng, hoặc bạn thay Config của bạn vào đây khi up lên Github)
         const firebaseConfig = {
@@ -1345,76 +1427,7 @@
         const firebaseApp = initializeApp(firebaseConfig);
         const auth = getAuth(firebaseApp);
         const db = getFirestore(firebaseApp);
-        const storage = getStorage(firebaseApp);
-        const storageFallbacks = [
-            storage,
-            getStorage(firebaseApp, 'gs://medicarepro-8588c.appspot.com'),
-            getStorage(firebaseApp, 'gs://medicarepro-8588c.firebasestorage.app')
-        ];
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'medicare-pro-v1';
-
-        const uploadSingleFile = async (storageInstance, storagePath, file, timeoutMs = 45000) => {
-            const fileRef = ref(storageInstance, storagePath);
-            return await new Promise((resolve, reject) => {
-                const task = uploadBytesResumable(fileRef, file);
-                const timer = setTimeout(() => {
-                    task.cancel();
-                    reject(new Error('Quá thời gian tải file lên Storage'));
-                }, timeoutMs);
-
-                task.on('state_changed', null, (error) => {
-                    clearTimeout(timer);
-                    reject(error);
-                }, async () => {
-                    clearTimeout(timer);
-                    try {
-                        const url = await getDownloadURL(task.snapshot.ref);
-                        resolve(url);
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            });
-        };
-
-        window.storageApi = {
-            uploadVisitFiles: async (files = [], patient = null, visitId = 'visit') => {
-                if (!auth.currentUser) throw new Error('Chưa đăng nhập hệ thống');
-                const sanitize = (value = '') => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-');
-                const uploaded = [];
-                for (const file of files) {
-                    if ((file.size || 0) > 15 * 1024 * 1024) {
-                        throw new Error(`Tệp "${file.name}" vượt quá 15MB nên không thể tải lên`);
-                    }
-                    const storagePath = `artifacts/${appId}/visit-files/${sanitize(patient?.code || patient?.id || 'unknown')}/${sanitize(visitId)}/${Date.now()}-${sanitize(file.name || 'file')}`;
-                    let url = null;
-                    let lastError = null;
-                    for (const storageInstance of storageFallbacks) {
-                        try {
-                            url = await uploadSingleFile(storageInstance, storagePath, file);
-                            if (url) break;
-                        } catch (error) {
-                            lastError = error;
-                        }
-                    }
-                    if (!url) {
-                        const code = lastError?.code || '';
-                        if (code === 'storage/unauthorized') throw new Error('Firebase Storage chưa cho phép tài khoản hiện tại tải file lên');
-                        if (code === 'storage/canceled' || code === 'storage/retry-limit-exceeded') throw new Error(`Tải file "${file.name}" bị gián đoạn hoặc quá thời gian`);
-                        throw new Error(lastError?.message || `Không thể tải file "${file.name}" lên Storage`);
-                    }
-                    uploaded.push({
-                        name: file.name || 'Tài liệu',
-                        size: file.size || 0,
-                        type: file.type || '',
-                        url,
-                        path: storagePath,
-                        uploaded_at: new Date().toISOString()
-                    });
-                }
-                return uploaded;
-            }
-        };
 
         // Ghi đè hàm saveDB: Giờ đây nó sẽ lưu thẳng lên Đám mây thay vì localStorage
         window.saveDB = async () => {
@@ -1455,7 +1468,7 @@
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'tables');
                 
                 // onSnapshot tự động kích hoạt mỗi khi có ai đó (hoặc thiết bị khác) gọi hàm saveDB
-                onSnapshot(colRef, (snapshot) => {
+                onSnapshot(colRef, async (snapshot) => {
                     let hasChanges = false;
                     
                     // Cập nhật lại mảng DB cục bộ bằng dữ liệu từ Cloud
@@ -1476,6 +1489,9 @@
                             seedDatabase(25); 
                             window.saveDB(); 
                         }
+
+                        // Khôi phục URL local cho file đính kèm (IndexedDB)
+                        await window.resolveAttachmentUrls(DB.visits);
                         
                         // Tắt màn hình loading và vào App
                         app.navigate('dashboard');
@@ -1484,6 +1500,7 @@
                         setTimeout(() => loading.style.display = 'none', 500);
                         isInitialLoad = false;
                     } else if (hasChanges) {
+                        await window.resolveAttachmentUrls(DB.visits);
                         // Nếu máy khác thay đổi dữ liệu -> render lại UI mà không cần F5
                         refreshCurrentView();
                     }
