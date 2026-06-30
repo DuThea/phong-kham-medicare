@@ -186,7 +186,7 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Tài liệu đính kèm</label>
                         <input type="file" id="inp_v_files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onchange="renderSelectedVisitFiles(this.files)" class="w-full px-3 py-2 border border-slate-300 rounded-md bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
-                        <p class="text-xs text-slate-400 mt-2">Hỗ trợ hình ảnh, PDF, Word và Excel. Tài liệu sẽ đồng bộ để xem lại trên điện thoại và máy tính.</p>
+                        <p class="text-xs text-slate-400 mt-2">Hỗ trợ hình ảnh, PDF, Word và Excel. Ảnh sẽ tự động được nén để tối ưu dung lượng. Tài liệu PDF/Word/Excel tối đa ~700KB/tệp. Tài liệu đồng bộ để xem lại trên điện thoại và máy tính.</p>
                         <div class="mt-3">
                             <p class="text-xs font-semibold text-slate-500 mb-2">Tài liệu đã lưu</p>
                             <div id="visit-existing-files" class="space-y-2"></div>
@@ -405,89 +405,6 @@
             uploadVisitFiles: async () => []
         };
 
-        // QUẢN LÝ LƯU TRỮ FILE CỤC BỘ (Tránh lỗi giới hạn của Firebase Storage)
-        window.localFileStorage = {
-            db: null,
-            init: function() {
-                return new Promise((resolve, reject) => {
-                    const req = indexedDB.open('MedicareFiles', 1);
-                    req.onupgradeneeded = (e) => {
-                        e.target.result.createObjectStore('attachments');
-                    };
-                    req.onsuccess = (e) => {
-                        this.db = e.target.result;
-                        resolve();
-                    };
-                    req.onerror = (e) => reject(e);
-                });
-            },
-            saveFile: function(fileId, file) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) return resolve();
-                    const tx = this.db.transaction('attachments', 'readwrite');
-                    tx.objectStore('attachments').put(file, fileId);
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = (e) => reject(e);
-                });
-            },
-            getFile: function(fileId) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) return resolve(null);
-                    const tx = this.db.transaction('attachments', 'readonly');
-                    const req = tx.objectStore('attachments').get(fileId);
-                    req.onsuccess = () => resolve(req.result);
-                    req.onerror = (e) => reject(e);
-                });
-            }
-        };
-        window.localFileStorage.init().catch(console.error);
-
-        window.resolveAttachmentUrls = async function(visits) {
-            for (let v of visits) {
-                if (v.attachments) {
-                    for (let att of v.attachments) {
-                        if (att.isLocal && att.id) {
-                            try {
-                                const file = await window.localFileStorage.getFile(att.id);
-                                if (file) {
-                                    att.url = URL.createObjectURL(file); // Khôi phục URL xem trực tiếp
-                                }
-                            } catch (e) {
-                                console.error('Không thể tải file local', e);
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        window.storageApi = {
-            uploadVisitFiles: async (files = [], patient = null, visitId = 'visit') => {
-                const uploaded = [];
-                for (const file of files) {
-                    if ((file.size || 0) > 15 * 1024 * 1024) {
-                        throw new Error(`Tệp "${file.name}" vượt quá 15MB`);
-                    }
-                    const fileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-                    try {
-                        await window.localFileStorage.saveFile(fileId, file);
-                        uploaded.push({
-                            id: fileId,
-                            name: file.name || 'Tài liệu',
-                            size: file.size || 0,
-                            type: file.type || '',
-                            url: URL.createObjectURL(file),
-                            isLocal: true,
-                            uploaded_at: new Date().toISOString()
-                        });
-                    } catch (error) {
-                        throw new Error(`Không thể lưu file "${file.name}". Lỗi bộ nhớ thiết bị.`);
-                    }
-                }
-                return uploaded;
-            }
-        };
-
         window.escapeHtml = function(value = '') {
             return String(value)
                 .replaceAll('&', '&amp;')
@@ -550,8 +467,8 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <a href="${file.url}" target="_blank" rel="noopener" class="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-white">Xem</a>
-                        <a href="${file.url}" download="${escapeHtml(file.name || 'tai-lieu')}" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-secondary">Tải</a>
+                        <button type="button" onclick="app.viewAttachment('${file.id}')" class="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-white">Xem</button>
+                        <button type="button" onclick="app.downloadAttachment('${file.id}', '${encodeURIComponent(file.name || 'tai-lieu')}')" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-secondary">Tải</button>
                     </div>
                 </div>
             `).join('');
@@ -592,8 +509,8 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
-                                    <a href="${file.url}" target="_blank" rel="noopener" class="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50">Xem</a>
-                                    <a href="${file.url}" download="${escapeHtml(file.name || 'tai-lieu')}" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-secondary">Tải xuống</a>
+                                    <button type="button" onclick="app.viewAttachment('${file.id}')" class="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50">Xem</button>
+                                    <button type="button" onclick="app.downloadAttachment('${file.id}', '${encodeURIComponent(file.name || 'tai-lieu')}')" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-secondary">Tải xuống</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -781,6 +698,51 @@
                 else { this.detailTab = 'visits'; renderPatientDetailTabs(); }
             },
             openAddMedication: function() { if(!this.selectedPatient) return; document.getElementById('form-med').reset(); document.getElementById('inp_m_id').value = ''; document.getElementById('modal-med-title').innerHTML = '<i class="fa-solid fa-capsules mr-2"></i>Kê Đơn Thuốc Mới'; updateMedicationSuggestions(''); ui.openModal('modal-medication'); },
+            // Xem / Tải xuống tài liệu đính kèm: dữ liệu được lưu trong Firestore (collection "attachments"),
+            // chỉ tải nội dung thật khi người dùng bấm vào, tránh load nặng dashboard/danh sách lượt khám.
+            _attachmentBlobUrlCache: {},
+            _dataUrlToBlob: function(dataUrl) {
+                const [meta, b64] = dataUrl.split(',');
+                const mimeMatch = /data:(.*);base64/.exec(meta);
+                const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+                const binary = atob(b64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                return new Blob([bytes], { type: mime });
+            },
+            viewAttachment: async function(attachmentId) {
+                if (!attachmentId) return;
+                ui.showToast('Đang tải tài liệu...', 'info');
+                try {
+                    const att = await storageApi.getAttachment(attachmentId);
+                    if (!att || !att.dataUrl) { ui.showToast('Không tìm thấy tài liệu hoặc đã bị xoá', 'error'); return; }
+                    const blob = this._dataUrlToBlob(att.dataUrl);
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, '_blank', 'noopener');
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                } catch (error) {
+                    ui.showToast(error?.message || 'Không thể mở tài liệu', 'error');
+                }
+            },
+            downloadAttachment: async function(attachmentId, encodedName) {
+                if (!attachmentId) return;
+                ui.showToast('Đang tải tài liệu...', 'info');
+                try {
+                    const att = await storageApi.getAttachment(attachmentId);
+                    if (!att || !att.dataUrl) { ui.showToast('Không tìm thấy tài liệu hoặc đã bị xoá', 'error'); return; }
+                    const blob = this._dataUrlToBlob(att.dataUrl);
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = decodeURIComponent(encodedName || att.name || 'tai-lieu');
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                } catch (error) {
+                    ui.showToast(error?.message || 'Không thể tải tài liệu', 'error');
+                }
+            },
             openEditMedication: function(id) { const m = DB.medications.find(x => x.id === id); if(!m) return; document.getElementById('inp_m_id').value = m.id; document.getElementById('inp_m_name').value = m.name; document.getElementById('inp_m_route').value = m.route; document.getElementById('inp_m_freq').value = m.freq; document.getElementById('inp_m_status').value = m.status; document.getElementById('inp_m_note').value = m.note || ''; updateMedicationSuggestions(m.name || ''); document.getElementById('modal-med-title').innerHTML = '<i class="fa-solid fa-pen mr-2"></i>Sửa Đơn Thuốc'; ui.openModal('modal-medication'); },
             saveMedication: function() {
                 applyMedicationSuggestion();
@@ -1411,23 +1373,126 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Cấu hình Firebase (Lấy từ biến môi trường của nền tảng, hoặc bạn thay Config của bạn vào đây khi up lên Github)
-        const firebaseConfig = {
-            apiKey: "AIzaSyDAh_SL1pq4gmMKy8zFUn2f6nkHzlkwDkA",
-            authDomain: "medicarepro-8588c.firebaseapp.com",
-            projectId: "medicarepro-8588c", 
-            storageBucket: "medicarepro-8588c.appspot.com",
-            messagingSenderId: "541330848431",
-            appId: "1:541330848431:web:850f7cfd8a631e4cccb25a",
-            measurementId: "G-HQ3B5PZ2XJ"
+        // === HỆ THỐNG LƯU TRỮ TÀI LIỆU MỚI: dùng Firestore thay cho Firebase Storage ===
+        // Lý do thay thế: Firebase Storage (gói Spark/free) thường bị lỗi CORS / storage/unauthorized
+        // hoặc yêu cầu nâng cấp gói trả phí (Blaze) mới dùng được ổn định trên nhiều thiết bị.
+        // Giải pháp: nén ảnh ngay trên trình duyệt rồi mã hoá Base64, lưu mỗi tài liệu thành 1
+        // document riêng trong collection "attachments" (không nhét vào doc "visits" để tránh
+        // vượt giới hạn 1MB/document của Firestore). Lượt khám chỉ lưu phần tham chiếu (id) nhẹ.
+        const ATTACHMENT_RAW_LIMIT = 700 * 1024; // ~700KB dữ liệu gốc / tệp (sau base64 ~960KB, vẫn an toàn dưới hạn 1MB của Firestore)
+        const attachmentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'attachments');
+
+        const fileToDataUrl = (blob) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('Không thể đọc tệp trên trình duyệt'));
+            reader.readAsDataURL(blob);
+        });
+
+        // Nén ảnh bằng canvas: giảm kích thước cạnh dài + giảm chất lượng JPEG cho tới khi đạt giới hạn
+        const compressImageFile = async (file) => {
+            const bitmap = await createImageBitmap(file).catch(() => null);
+            if (!bitmap) return file; // nếu trình duyệt không hỗ trợ, dùng file gốc (sẽ bị chặn ở bước kiểm tra size)
+
+            let { width, height } = bitmap;
+            const MAX_EDGE = 1600;
+            if (Math.max(width, height) > MAX_EDGE) {
+                const ratio = MAX_EDGE / Math.max(width, height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bitmap, 0, 0, width, height);
+
+            let quality = 0.82;
+            let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+            while (blob && blob.size > ATTACHMENT_RAW_LIMIT && quality > 0.35) {
+                quality -= 0.12;
+                blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+            }
+            // Nếu vẫn còn quá lớn ở chất lượng thấp nhất, thu nhỏ thêm kích thước ảnh
+            if (blob && blob.size > ATTACHMENT_RAW_LIMIT) {
+                const ratio2 = Math.sqrt(ATTACHMENT_RAW_LIMIT / blob.size) * 0.92;
+                canvas.width = Math.max(200, Math.round(width * ratio2));
+                canvas.height = Math.max(200, Math.round(height * ratio2));
+                ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
+            }
+            return blob || file;
         };
 
-        const firebaseApp = initializeApp(firebaseConfig);
-        const auth = getAuth(firebaseApp);
-        const db = getFirestore(firebaseApp);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'medicare-pro-v1';
+        window.storageApi = {
+            uploadVisitFiles: async (files = [], patient = null, visitId = 'visit') => {
+                if (!auth.currentUser) throw new Error('Chưa đăng nhập hệ thống');
+                const uploaded = [];
+                for (const file of files) {
+                    const isImage = (file.type || '').startsWith('image/');
+                    let payload = file;
+
+                    if (isImage) {
+                        try { payload = await compressImageFile(file); } catch (e) { payload = file; }
+                    }
+
+                    if ((payload.size || 0) > ATTACHMENT_RAW_LIMIT) {
+                        const limitMb = (ATTACHMENT_RAW_LIMIT / 1024 / 1024).toFixed(2);
+                        throw new Error(`Tệp "${file.name}" vượt quá ${limitMb}MB sau khi tối ưu, vui lòng chọn tệp nhỏ hơn hoặc ảnh có độ phân giải thấp hơn`);
+                    }
+
+                    let dataUrl;
+                    try {
+                        dataUrl = await fileToDataUrl(payload);
+                    } catch (err) {
+                        throw new Error(`Không thể xử lý tệp "${file.name}" trên trình duyệt`);
+                    }
+
+                    const attachmentRef = doc(attachmentsCol);
+                    const attachmentDoc = {
+                        name: file.name || 'Tài liệu',
+                        type: isImage ? 'image/jpeg' : (file.type || ''),
+                        size: payload.size || file.size || 0,
+                        dataUrl,
+                        patient_id: patient?.id || null,
+                        visit_id: visitId,
+                        uploaded_at: new Date().toISOString()
+                    };
+
+                    try {
+                        await setDoc(attachmentRef, attachmentDoc);
+                    } catch (error) {
+                        console.error('Lỗi lưu tài liệu vào Firestore:', error);
+                        throw new Error(`Không thể lưu tệp "${file.name}" lên hệ thống lưu trữ`);
+                    }
+
+                    // Lượt khám chỉ giữ phần tham chiếu nhẹ (không kèm dataUrl) để tránh phình dung lượng
+                    uploaded.push({
+                        id: attachmentRef.id,
+                        name: attachmentDoc.name,
+                        size: attachmentDoc.size,
+                        type: attachmentDoc.type,
+                        uploaded_at: attachmentDoc.uploaded_at
+                    });
+                }
+                return uploaded;
+            },
+
+            // Lấy nội dung (dataUrl) của 1 tài liệu đã lưu khi người dùng bấm Xem/Tải xuống
+            getAttachment: async (attachmentId) => {
+                if (!attachmentId) return null;
+                try {
+                    const snap = await getDoc(doc(attachmentsCol, attachmentId));
+                    if (!snap.exists()) return null;
+                    return snap.data();
+                } catch (error) {
+                    console.error('Lỗi tải tài liệu đính kèm:', error);
+                    throw new Error('Không thể tải nội dung tài liệu, vui lòng thử lại');
+                }
+            }
+        };
 
         // Ghi đè hàm saveDB: Giờ đây nó sẽ lưu thẳng lên Đám mây thay vì localStorage
         window.saveDB = async () => {
@@ -1468,7 +1533,7 @@
                 const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'tables');
                 
                 // onSnapshot tự động kích hoạt mỗi khi có ai đó (hoặc thiết bị khác) gọi hàm saveDB
-                onSnapshot(colRef, async (snapshot) => {
+                onSnapshot(colRef, (snapshot) => {
                     let hasChanges = false;
                     
                     // Cập nhật lại mảng DB cục bộ bằng dữ liệu từ Cloud
@@ -1489,9 +1554,6 @@
                             seedDatabase(25); 
                             window.saveDB(); 
                         }
-
-                        // Khôi phục URL local cho file đính kèm (IndexedDB)
-                        await window.resolveAttachmentUrls(DB.visits);
                         
                         // Tắt màn hình loading và vào App
                         app.navigate('dashboard');
@@ -1500,7 +1562,6 @@
                         setTimeout(() => loading.style.display = 'none', 500);
                         isInitialLoad = false;
                     } else if (hasChanges) {
-                        await window.resolveAttachmentUrls(DB.visits);
                         // Nếu máy khác thay đổi dữ liệu -> render lại UI mà không cần F5
                         refreshCurrentView();
                     }
