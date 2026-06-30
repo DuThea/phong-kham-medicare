@@ -47,6 +47,53 @@
         <p class="text-slate-500 font-medium text-sm">Đang đồng bộ dữ liệu đám mây...</p>
     </div>
 
+    <!-- "Người gác cổng" chẩn đoán lỗi: nếu màn hình loading bị treo quá lâu hoặc có lỗi JS/mạng,
+         hiển thị lý do cụ thể thay vì để người dùng nhìn vòng xoay vô tận. -->
+    <script>
+        (function () {
+            var shown = false;
+            function showDiagnostic(message, hint) {
+                if (shown) return;
+                shown = true;
+                var overlay = document.getElementById('loading-overlay');
+                if (!overlay) return;
+                overlay.innerHTML =
+                    '<div class="max-w-md text-center px-6">' +
+                    '<i class="fa-solid fa-triangle-exclamation text-rose-500 text-4xl mb-3"></i>' +
+                    '<h2 class="text-lg font-bold text-slate-800 mb-2">Không kết nối được hệ thống đám mây</h2>' +
+                    '<p class="text-sm text-slate-600 mb-3">' + message + '</p>' +
+                    '<p class="text-xs text-slate-400">' + hint + '</p>' +
+                    '<button onclick="location.reload()" class="mt-4 text-xs px-4 py-2 rounded-lg bg-primary text-white">Thử lại</button>' +
+                    '</div>';
+            }
+            window.addEventListener('error', function (e) {
+                showDiagnostic(
+                    'Lỗi tải mã nguồn: ' + (e.message || 'không xác định'),
+                    'Mở Console (F12) để xem chi tiết kỹ thuật. Nếu dòng lỗi nhắc tới "firebase" hoặc CORS, khả năng cao là trang đang mở trực tiếp từ ổ đĩa (file://) hoặc mạng đang chặn domain gstatic.com / googleapis.com.'
+                );
+            });
+            window.addEventListener('unhandledrejection', function (e) {
+                var reason = e.reason && e.reason.message ? e.reason.message : String(e.reason || '');
+                showDiagnostic('Lỗi kết nối tới Firebase: ' + reason, 'Kiểm tra kết nối mạng, hoặc cấu hình Firebase (Authentication > Sign-in method > Anonymous phải được Bật, Firestore Rules phải cho phép user đã đăng nhập đọc/ghi).');
+            });
+            setTimeout(function () {
+                var overlay = document.getElementById('loading-overlay');
+                if (!overlay || overlay.style.display === 'none') return;
+                if (location.protocol === 'file:') {
+                    showDiagnostic(
+                        'Trang đang được mở trực tiếp từ file trên máy (file://...).',
+                        'Trình duyệt chặn các yêu cầu mạng tới Firebase khi mở kiểu này. Hãy chạy file qua một local server (vd: tiện ích "Live Server" trong VS Code, hoặc lệnh "npx serve" trong thư mục chứa file) rồi mở bằng địa chỉ http://localhost..., hoặc đưa lên hosting (Firebase Hosting / GitHub Pages / Netlify).'
+                    );
+                } else {
+                    showDiagnostic(
+                        'Quá thời gian chờ phản hồi từ Firebase (hơn 8 giây).',
+                        'Nguyên nhân thường gặp: mạng/trình duyệt chặn domain gstatic.com hoặc googleapis.com (tiện ích chặn quảng cáo), dự án Firebase đã bị xoá/đổi cấu hình, hoặc "Anonymous Authentication" chưa được bật trong Firebase Console > Authentication > Sign-in method.'
+                    );
+                }
+            }, 8000);
+        })();
+    </script>
+
     <!-- UI GIỮ NGUYÊN HOÀN TOÀN TỪ MÃ CỦA BẠN -->
     <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-40 hidden md:hidden" onclick="ui.closeSidebar()"></div>
 
@@ -1374,6 +1421,22 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Cấu hình Firebase (Lấy từ biến môi trường của nền tảng, hoặc bạn thay Config của bạn vào đây khi up lên Github)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDAh_SL1pq4gmMKy8zFUn2f6nkHzlkwDkA",
+            authDomain: "medicarepro-8588c.firebaseapp.com",
+            projectId: "medicarepro-8588c",
+            storageBucket: "medicarepro-8588c.appspot.com",
+            messagingSenderId: "541330848431",
+            appId: "1:541330848431:web:850f7cfd8a631e4cccb25a",
+            measurementId: "G-HQ3B5PZ2XJ"
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
+        const db = getFirestore(firebaseApp);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'medicare-pro-v1';
 
         // === HỆ THỐNG LƯU TRỮ TÀI LIỆU MỚI: dùng Firestore thay cho Firebase Storage ===
         // Lý do thay thế: Firebase Storage (gói Spark/free) thường bị lỗi CORS / storage/unauthorized
