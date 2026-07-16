@@ -106,6 +106,11 @@
   .btn.slate{border-color:var(--slate);color:#bcd0ee;}
   .btn.sm{padding:8px 11px;font-size:13px;}
   .btn.danger{border-color:var(--neg-line);color:var(--neg);background:var(--neg-dim);}
+  .notice{background:var(--warn-dim,rgba(212,160,60,.10));border:1px solid var(--warn-line,rgba(212,160,60,.35));border-radius:var(--r);padding:14px;margin-bottom:14px;font-size:13px;line-height:1.5;color:var(--ink);}
+  .chiprow{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 10px;scrollbar-width:none;}
+  .chiprow::-webkit-scrollbar{display:none;}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;font-family:var(--mono);white-space:nowrap;}
+  .chip.active{border-color:var(--slate);color:#bcd0ee;background:var(--surface);}
   .btn:disabled{opacity:.4;pointer-events:none;}
 
   /* ---------- Trade screen ---------- */
@@ -302,8 +307,14 @@ const state = {
   draftStars: 0,
   draftNote: "",
   route: "dashboard",
-  syncFp: null,
   syncTimer: null,
+  syncing: false,                 // chống 2 phiên sync chồng nhau
+  lastPushAt: 0,                  // watermark đẩy gia tăng
+  lastPullAt: 0,                  // watermark kéo gia tăng
+  lastBackupAt: 0,               // lần sao lưu (sync/export) gần nhất
+  pendingDeletes: {cycles:[],trades:[],rule_breaks:[]}, // tombstone cho undo
+  logCycleFilter: "all",         // lọc Nhật ký theo chu kỳ
+  logDaysShown: 14,              // phân trang Nhật ký theo ngày
 };
 
 /* =============================== storage ================================ */
@@ -377,7 +388,12 @@ async function loadAll(){
   let dev = await getMeta("deviceId");
   if(!dev){ dev = uid(); await setMeta("deviceId",dev); }
   state.deviceId = dev;
-  state.syncFp = await getMeta("syncFp");
+  state.lastPushAt = (await getMeta("lastPushAt")) || 0;
+  state.lastPullAt = (await getMeta("lastPullAt")) || 0;
+  state.pendingDeletes = (await getMeta("pendingDeletes")) || {cycles:[],trades:[],rule_breaks:[]};
+  let lb = await getMeta("lastBackupAt");
+  if(!lb){ lb = Date.now(); await setMeta("lastBackupAt", lb); }  // ân hạn: bắt đầu đếm từ nay
+  state.lastBackupAt = lb;
 }
 
 /* =============================== helpers ================================= */
@@ -555,7 +571,7 @@ async function pressResult(kind){ // "WIN" | "LOSS"
 
   const trade={ id:uid(), seq:nowSeq(), cycleId:c.id, roundId:ar.roundId, tier,
                 date:Date.now(), size:round2(size), result:kind, pnl:round2(pnl),
-                notes: note() };
+                notes: note(), updatedAt: Date.now() };
   state.trades.push(trade);
   await put("trades", trade);
 
@@ -605,6 +621,11 @@ async function undo(){
   const last=list[list.length-1];
   state.trades=state.trades.filter(t=>t.id!==last.id);
   await del("trades", last.id);
+  // if this trade was already pushed to cloud, remember to delete it there too
+  if(effUpdatedAt(last) <= (state.lastPushAt||0)){
+    state.pendingDeletes.trades.push(last.id);
+    await setMeta("pendingDeletes", state.pendingDeletes);
+  }
 
   // rebuild active round from remaining trades of that round
   const rest=state.trades.filter(t=>t.roundId===last.roundId).sort((a,b)=>a.seq-b.seq);
@@ -625,7 +646,7 @@ async function undo(){
 }
 
 async function breakRule(){
-  const rb={ id:uid(), date:Date.now(), reason:"edge_gate_bypass" };
+  const rb={ id:uid(), date:Date.now(), reason:"edge_gate_bypass", updatedAt:Date.now() };
   state.ruleBreaks.push(rb);
   await put("rule_breaks", rb);
   state.override=true;
@@ -808,7 +829,17 @@ function viewDashboard(){
     </div>
   </div>`;
 
-  if(!c) return `<section class="view"><div class="view-head"><span class="eyebrow">Expectancy</span><h2>Tổng quan</h2></div>${statsCard}${edgeCard}${noCycleInline()}</section>`;
+  // backup reminder — nudge if no sync/export in >7 days (mainly for users without cloud sync)
+  const overdue = state.trades.length>0 && (Date.now()-(state.lastBackupAt||0) > 7*86400000);
+  const backupBanner = (overdue && !state._backupDismissed) ? `<div class="notice">
+    <div>${iAlertInline} Đã hơn 7 ngày chưa sao lưu. Dữ liệu đang chỉ nằm trên máy này — hãy Export JSON hoặc bật đồng bộ cloud để tránh mất (trình duyệt có thể tự dọn dữ liệu).</div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn slate sm" data-act="export">⭳ Export ngay</button>
+      <button class="btn ghost sm" data-act="gosettings">Cấu hình cloud</button>
+      <button class="btn ghost sm" data-act="dismissbackup">Ẩn</button>
+    </div></div>` : "";
+
+  if(!c) return `<section class="view"><div class="view-head"><span class="eyebrow">Expectancy</span><h2>Tổng quan</h2></div>${backupBanner}${statsCard}${edgeCard}${noCycleInline()}</section>`;
 
   const eq=cycleEquity(c);
   const realized=eq-(c.deposit||0)-(c.bonus||0);
@@ -843,7 +874,7 @@ function viewDashboard(){
     ${days.length>=2?lineChart(theo, actual, {aLabel:`Lý thuyết +${S.dailyTargetPct}%/ngày`, bLabel:"Thực tế"}):`<div class="empty">Cần ít nhất 2 ngày dữ liệu để vẽ đường vốn.</div>`}
   </div>`;
 
-  return `<section class="view"><div class="view-head"><span class="eyebrow">Expectancy</span><h2>Tổng quan</h2></div>${statsCard}${edgeCard}${cycleCard}${curveCard}</section>`;
+  return `<section class="view"><div class="view-head"><span class="eyebrow">Expectancy</span><h2>Tổng quan</h2></div>${backupBanner}${statsCard}${edgeCard}${cycleCard}${curveCard}</section>`;
 }
 
 function equitySeries(c){
@@ -937,10 +968,14 @@ function estRoundsPerDay(c){
 /* -------- /log -------- */
 function viewLog(){
   const S=state.settings;
-  // group all trades by day
+  // cycle filter + pagination scope
+  const filter=state.logCycleFilter||"all";
+  const scoped = filter==="all" ? state.trades : state.trades.filter(t=>t.cycleId===filter);
   const byDay=new Map();
-  for(const t of state.trades){ const k=dayKey(t.date); if(!byDay.has(k)) byDay.set(k,[]); byDay.get(k).push(t); }
-  const days=[...byDay.keys()].sort().reverse();
+  for(const t of scoped){ const k=dayKey(t.date); if(!byDay.has(k)) byDay.set(k,[]); byDay.get(k).push(t); }
+  const allDays=[...byDay.keys()].sort().reverse();
+  const days=allDays.slice(0, state.logDaysShown||14);
+  const moreDays=allDays.length - days.length;
 
   // ---- cycle history: each cycle is a saved record (recomputed from its trades) ----
   const cyclesSorted=[...state.cycles].sort((a,b)=>b.startDate-a.startDate);
@@ -955,7 +990,9 @@ function viewLog(){
     const allRounds=reconstructRounds(tradesOf(c.id));
     const rounds=allRounds.filter(r=>r.result!=="OPEN");
     const {dist,won}=tierDistribution(allRounds);
-    const roundList=rounds.length? rounds.slice().reverse().map(r=>{
+    const RCAP=40;
+    const capNote = rounds.length>RCAP ? `<div class="stat" style="margin-top:6px"><span class="sub">Hiển thị ${RCAP} vòng gần nhất trên tổng ${rounds.length}.</span></div>`:"";
+    const roundList=rounds.length? rounds.slice(-RCAP).reverse().map(r=>{
         const seq=r.trades.map(t=>`<b class="${t.result==="WIN"?'W':'L'}">${t.result==="WIN"?'W':'L'}</b>`).join("");
         const res=r.result==="WON"?`thắng T${r.winTier}`:`cháy ${r.tiers}`;
         return `<div class="tradeline"><span><span class="seq">${seq}</span> <span style="color:var(--ink-3)">${res}</span></span><span class="${r.pnl>=0?'pos':'neg'}">${signed(r.pnl)}</span></div>`;
@@ -980,12 +1017,13 @@ function viewLog(){
         ${distBlock}
         <div class="sep"></div>
         <div class="t2" style="margin-bottom:2px">Các vòng (${rounds.length})</div>
+        ${capNote}
         ${roundList}
       </div></div>`;
   }).join("");
   const cycleHistoryCard = state.cycles.length? `<div class="card"><h3>${iCycleSm} Lịch sử chu kỳ <span style="color:var(--ink-3);font-weight:500;font-size:11px">· ${state.cycles.length} chu kỳ</span></h3>${cycleCards}</div>`:"";
 
-  if(!state.cycles.length && !days.length && !state.ruleBreaks.length){
+  if(!state.cycles.length && !state.trades.length && !state.ruleBreaks.length){
     return `<section class="view"><div class="view-head"><span class="eyebrow">History</span><h2>Nhật ký</h2></div><div class="card"><div class="empty"><b>Chưa có lệnh nào</b>Vào tab “Vào lệnh” để bắt đầu ghi nhận chuỗi Martingale.</div></div></section>`;
   }
 
@@ -1022,8 +1060,16 @@ function viewLog(){
   const breaks = state.ruleBreaks.length? `<div class="card"><h3>${iAlertSm} Vi phạm kỷ luật (${state.ruleBreaks.length})</h3>
     ${state.ruleBreaks.slice().reverse().map(b=>`<div class="tradeline"><span>${fmtDateFull(b.date)} ${fmtTime(b.date)}</span><span class="neg">${esc(reasonLabel(b.reason))}</span></div>`).join("")}</div>`:"";
 
-  return `<section class="view"><div class="view-head"><span class="eyebrow">History</span><h2>Nhật ký</h2></div>${cycleHistoryCard}${dayCards?`<div class="subhead">Chi tiết theo ngày</div>${dayCards}`:""}${breaks}</section>`;
+  const chips = state.cycles.length ? `<div class="chiprow">
+    <button class="chip ${filter==='all'?'active':''}" data-act="logfilter" data-cyc="all">Tất cả</button>
+    ${cyclesSorted.map(c=>`<button class="chip ${filter===c.id?'active':''}" data-act="logfilter" data-cyc="${c.id}">CK${cycleNumber(c)}${c.status==='ACTIVE'?' •':''}</button>`).join("")}
+  </div>`:"";
+  const moreBtn = moreDays>0 ? `<button class="btn ghost block" data-act="logmore" style="margin-top:2px">Xem thêm (còn ${moreDays} ngày)</button>`:"";
+  const daySection = state.trades.length ? `<div class="subhead">Chi tiết theo ngày</div>${chips}${dayCards || `<div class="card"><div class="empty">Không có lệnh cho lựa chọn này.</div></div>`}${moreBtn}` : "";
+
+  return `<section class="view"><div class="view-head"><span class="eyebrow">History</span><h2>Nhật ký</h2></div>${cycleHistoryCard}${daySection}${breaks}</section>`;
 }
+function cycleNumber(c){ return [...state.cycles].sort((a,b)=>a.startDate-b.startDate).findIndex(x=>x.id===c.id)+1; }
 function reasonLabel(r){ return ({edge_gate_bypass:"Bỏ qua Edge Gate", reopen_session:"Mở lại phiên đã khóa"})[r]||r; }
 
 /* -------- /settings -------- */
@@ -1065,11 +1111,13 @@ function viewSettings(){
 
   <div class="card"><h3>${iCloud} Đồng bộ đám mây (Supabase)</h3>
     <label class="f"><span class="lk">Supabase URL</span><input class="i" id="sb-url" type="url" placeholder="https://xxxx.supabase.co" value="${esc(S.supabaseUrl)}" /></label>
-    <label class="f"><span class="lk">Anon key</span><input class="i" id="sb-key" type="text" placeholder="eyJ..." value="${esc(S.supabaseKey)}" /><span class="hint">Sync tĩnh qua REST — không cần backend server. Xem README để tạo 3 bảng + policy. Device ID: <span class="mono">${state.deviceId?.slice(0,8)}</span></span></label>
+    <label class="f"><span class="lk">Anon key</span><input class="i" id="sb-key" type="text" placeholder="eyJ..." value="${esc(S.supabaseKey)}" /><span class="hint">Đồng bộ gia tăng 2 chiều qua REST — chỉ đẩy/kéo phần thay đổi, không cần backend. Xem README để tạo 3 bảng + cột <span class="mono">updatedAt</span>. Device ID: <span class="mono">${state.deviceId?.slice(0,8)}</span></span></label>
     <div class="inline-2">
       <button class="btn slate" data-act="savesb">Lưu cấu hình</button>
       <button class="btn" data-act="syncnow" ${synced?"":"disabled"}>Đồng bộ ngay</button>
     </div>
+    ${synced?`<button class="btn ghost sm block" style="margin-top:8px" data-act="restorecloud">⭯ Khôi phục toàn bộ từ cloud</button>
+    <div class="stat" style="margin-top:8px"><span class="sub">Đồng bộ gần nhất: ${state.lastPushAt?fmtDateFull(state.lastPushAt)+" "+fmtTime(state.lastPushAt):"chưa"} · Kéo về gần nhất: ${state.lastPullAt?fmtDateFull(state.lastPullAt)+" "+fmtTime(state.lastPullAt):"chưa"}</span></div>`:""}
   </div>
 
   <div class="card"><h3>${iData} Quản lý dữ liệu</h3>
@@ -1078,7 +1126,7 @@ function viewSettings(){
       <button class="btn" data-act="import">⭱ Import JSON</button>
     </div>
     <div class="sep"></div>
-    <div class="stat"><span class="sub">${state.cycles.length} chu kỳ · ${state.trades.length} lệnh · ${state.ruleBreaks.length} vi phạm — lưu offline trong IndexedDB.</span></div>
+    <div class="stat"><span class="sub">${state.cycles.length} chu kỳ · ${state.trades.length} lệnh · ${state.ruleBreaks.length} vi phạm — lưu offline trong IndexedDB. Sao lưu gần nhất: ${state.lastBackupAt?fmtDateFull(state.lastBackupAt):"chưa"}.</span></div>
     <button class="btn danger block" style="margin-top:12px" data-act="wipe">Xóa toàn bộ dữ liệu</button>
     <input type="file" id="importfile" accept="application/json" style="display:none" />
   </div>
@@ -1148,9 +1196,13 @@ async function handleAct(act, el){
     case "savesettings": return saveSettings();
     case "savesb": return saveSupabase();
     case "syncnow": return syncNow(true);
+    case "restorecloud": return restoreFromCloud();
     case "export": return exportJSON();
     case "import": document.getElementById("importfile").click(); return;
     case "wipe": return wipe();
+    case "logfilter": state.logCycleFilter=el.dataset.cyc||"all"; state.logDaysShown=14; render(); return;
+    case "logmore": state.logDaysShown=(state.logDaysShown||14)+14; render(); return;
+    case "dismissbackup": state._backupDismissed=true; render(); return;
   }
 }
 
@@ -1159,8 +1211,8 @@ async function newCycle(){
   const bon=parseFloat(document.getElementById("c-bonus").value)||0;
   // deactivate current
   const cur=activeCycle();
-  if(cur){ cur.status="COMPLETED"; cur.endDate=Date.now(); await put("cycles",cur); }
-  const c={ id:uid(), startDate:Date.now(), deposit:dep, bonus:bon, status:"ACTIVE" };
+  if(cur){ cur.status="COMPLETED"; cur.endDate=Date.now(); cur.updatedAt=Date.now(); await put("cycles",cur); }
+  const c={ id:uid(), startDate:Date.now(), deposit:dep, bonus:bon, status:"ACTIVE", updatedAt:Date.now() };
   state.cycles.push(c); await put("cycles",c);
   state.activeRound=null; await setMeta("activeRound",null);
   toast("Đã tạo chu kỳ mới.","pos"); syncDebounced(); render();
@@ -1168,7 +1220,7 @@ async function newCycle(){
 async function closeCycle(){
   const c=activeCycle(); if(!c) return;
   if(!confirm("Kết thúc chu kỳ hiện tại? Toàn bộ lịch sử lệnh của chu kỳ sẽ được LƯU LẠI và xem được ở tab Nhật ký → Lịch sử chu kỳ.")) return;
-  c.status="COMPLETED"; c.endDate=Date.now(); await put("cycles",c);
+  c.status="COMPLETED"; c.endDate=Date.now(); c.updatedAt=Date.now(); await put("cycles",c);
   state.activeRound=null; await setMeta("activeRound",null);
   toast("Đã lưu & kết thúc chu kỳ. Xem lại ở Nhật ký → Lịch sử chu kỳ.","pos"); syncDebounced(); render();
 }
@@ -1202,7 +1254,8 @@ function exportJSON(){
   a.href=URL.createObjectURL(blob);
   a.download=`bo-capital-os_${todayKey()}.json`;
   a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  toast("Đã xuất dữ liệu JSON.","pos");
+  state.lastBackupAt=Date.now(); setMeta("lastBackupAt", state.lastBackupAt);
+  toast("Đã xuất dữ liệu JSON.","pos"); render();
 }
 async function onImportFile(e){
   const f=e.target.files[0]; if(!f) return;
@@ -1220,47 +1273,122 @@ async function onImportFile(e){
   e.target.value="";
 }
 async function wipe(){
-  if(!confirm("Xóa TOÀN BỘ dữ liệu (chu kỳ, lệnh, vi phạm)? Không thể hoàn tác.")) return;
+  const synced=state.settings.supabaseUrl && state.settings.supabaseKey;
+  if(!confirm("Xóa TOÀN BỘ dữ liệu trên MÁY NÀY (chu kỳ, lệnh, vi phạm)? Không thể hoàn tác."+(synced?" Lưu ý: dữ liệu trên cloud KHÔNG bị xóa và có thể được kéo về khi mở trên máy mới.":""))) return;
   if(!confirm("Chắc chắn chứ? Nên Export JSON trước khi xóa.")) return;
   for(const s of ["cycles","trades","rule_breaks"]) await clearStore(s);
   await setMeta("activeRound",null);
   state.cycles=[];state.trades=[];state.ruleBreaks=[];state.activeRound=null;
-  toast("Đã xóa toàn bộ dữ liệu.","neg"); render();
+  toast("Đã xóa dữ liệu trên máy này.","neg"); render();
 }
 
 /* ----------------------- Supabase REST sync (optional) ------------------ */
-function fingerprint(){
-  let s=state.trades.length+"|"+state.cycles.length+"|"+state.ruleBreaks.length;
-  for(const t of state.trades) s+=t.id+t.pnl;
-  // small hash
-  let h=0; for(let i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))|0; }
-  return String(h);
-}
-function syncDebounced(){
-  if(!(state.settings.supabaseUrl && state.settings.supabaseKey)) return;
-  clearTimeout(state.syncTimer);
-  state.syncTimer=setTimeout(()=>syncNow(false), 4000);
-}
-async function syncNow(manual){
-  const S=state.settings;
-  if(!(S.supabaseUrl && S.supabaseKey)){ if(manual) toast("Chưa cấu hình Supabase.","neg"); return; }
-  const fp=fingerprint();
-  if(!manual && fp===state.syncFp) return; // dedup: nothing changed
-  const hdr={ "apikey":S.supabaseKey, "Authorization":"Bearer "+S.supabaseKey, "Content-Type":"application/json", "Prefer":"resolution=merge-duplicates,return=minimal" };
-  const dev=state.deviceId;
-  try{
-    const tag=o=>({...o, device_id:dev});
-    await pushTable("cycles", state.cycles.map(tag), hdr, S);
-    await pushTable("trades", state.trades.map(tag), hdr, S);
-    await pushTable("rule_breaks", state.ruleBreaks.map(tag), hdr, S);
-    state.syncFp=fp; await setMeta("syncFp",fp);
-    if(manual) toast("Đã đồng bộ lên Supabase.","pos");
-  }catch(err){ if(manual) toast("Lỗi đồng bộ: "+err.message,"neg"); }
-}
+// Incremental 2-way sync. Push only rows changed since lastPushAt; pull only
+// rows changed since lastPullAt and merge by id (last-write-wins on updatedAt).
+// Payload no longer scales with total history — only with what actually changed.
+function effUpdatedAt(r){ return r.updatedAt || r.date || r.startDate || 0; }
+function syncHeaders(S){ return { "apikey":S.supabaseKey, "Authorization":"Bearer "+S.supabaseKey, "Content-Type":"application/json", "Prefer":"resolution=merge-duplicates,return=minimal" }; }
+const SYNC_TABLES = ["cycles","trades","rule_breaks"];
+function localArrFor(table){ return table==="cycles"?state.cycles : table==="trades"?state.trades : state.ruleBreaks; }
+
 async function pushTable(table, rows, hdr, S){
   if(!rows.length) return;
   const r=await fetch(`${S.supabaseUrl}/rest/v1/${table}`,{method:"POST",headers:hdr,body:JSON.stringify(rows)});
-  if(!r.ok) throw new Error(table+" "+r.status);
+  if(!r.ok) throw new Error(table+" push "+r.status);
+}
+async function deleteRows(table, ids, hdr, S){
+  if(!ids.length) return;
+  const list=ids.map(encodeURIComponent).join(",");
+  const r=await fetch(`${S.supabaseUrl}/rest/v1/${table}?id=in.(${list})`,{method:"DELETE",headers:hdr});
+  if(!r.ok) throw new Error(table+" delete "+r.status);
+}
+
+async function syncPush(hdr){
+  const S=state.settings, dev=state.deviceId, since=state.lastPushAt||0, nowTs=Date.now();
+  const tag=o=>({...o, device_id:dev, updatedAt: effUpdatedAt(o)});
+  let pushed=0;
+  for(const table of SYNC_TABLES){
+    const dirty=localArrFor(table).filter(r=>effUpdatedAt(r) > since).map(tag);
+    if(dirty.length){ await pushTable(table, dirty, hdr, S); pushed+=dirty.length; }
+  }
+  // best-effort: propagate deletions (undo). Keep queue on failure to retry.
+  const del=state.pendingDeletes||{cycles:[],trades:[],rule_breaks:[]};
+  try{
+    for(const table of SYNC_TABLES){ if(del[table] && del[table].length) await deleteRows(table, del[table], hdr, S); }
+    state.pendingDeletes={cycles:[],trades:[],rule_breaks:[]}; await setMeta("pendingDeletes", state.pendingDeletes);
+  }catch(e){ console.warn("delete sync deferred:", e.message); }
+  state.lastPushAt=nowTs; await setMeta("lastPushAt", nowTs);
+  state.lastBackupAt=nowTs; await setMeta("lastBackupAt", nowTs);
+  return pushed;
+}
+
+async function syncPull(){
+  const S=state.settings, since=state.lastPullAt||0;
+  const ghdr={ "apikey":S.supabaseKey, "Authorization":"Bearer "+S.supabaseKey };  // GET: no Prefer
+  let applied=0, maxTs=since;
+  for(const table of SYNC_TABLES){
+    let rows=[];
+    try{
+      const u=`${S.supabaseUrl}/rest/v1/${table}?select=*&updatedAt=gt.${since}&order=updatedAt.asc`;
+      const r=await fetch(u,{headers:ghdr}); if(!r.ok) throw new Error(String(r.status)); rows=await r.json();
+    }catch(e){
+      // old table without an updatedAt column → fall back to a full pull once
+      const r=await fetch(`${S.supabaseUrl}/rest/v1/${table}?select=*`,{headers:ghdr});
+      if(!r.ok) throw new Error(table+" pull "+r.status); rows=await r.json();
+    }
+    const arr=localArrFor(table);
+    for(const row of rows){
+      const {device_id, ...rec}=row;
+      if(!rec.id) continue;
+      const incoming=effUpdatedAt(rec);
+      const idx=arr.findIndex(x=>x.id===rec.id);
+      if(idx<0){ arr.push(rec); await put(table, rec); applied++; }
+      else if(incoming > effUpdatedAt(arr[idx])){ arr[idx]=rec; await put(table, rec); applied++; }
+      if(incoming>maxTs) maxTs=incoming;
+    }
+  }
+  state.lastPullAt=maxTs; await setMeta("lastPullAt", maxTs);
+  return applied;
+}
+
+async function syncNow(manual){
+  const S=state.settings;
+  if(!(S.supabaseUrl && S.supabaseKey)){ if(manual) toast("Chưa cấu hình Supabase.","neg"); return; }
+  if(state.syncing){ if(manual) toast("Đang đồng bộ…",""); return; }
+  state.syncing=true;
+  try{
+    const hdr=syncHeaders(S);
+    const pulled=await syncPull();
+    const pushed=await syncPush(hdr);
+    if(manual) toast(`Đồng bộ xong · tải về ${pulled}, đẩy lên ${pushed}.`,"pos");
+    if(pulled) render();
+  }catch(err){ if(manual) toast("Lỗi đồng bộ: "+err.message,"neg"); else console.warn("sync:", err.message); }
+  finally{ state.syncing=false; }
+}
+
+function syncDebounced(){
+  if(!(state.settings.supabaseUrl && state.settings.supabaseKey)) return;
+  clearTimeout(state.syncTimer);
+  state.syncTimer=setTimeout(async ()=>{
+    if(state.syncing) return;
+    state.syncing=true;
+    try{ await syncPush(syncHeaders(state.settings)); }
+    catch(e){ console.warn("push:", e.message); }
+    finally{ state.syncing=false; }
+  }, 4000);
+}
+
+async function restoreFromCloud(){
+  const S=state.settings;
+  if(!(S.supabaseUrl && S.supabaseKey)){ toast("Chưa cấu hình Supabase.","neg"); return; }
+  if(state.syncing){ toast("Đang đồng bộ…",""); return; }
+  if(!confirm("Kéo TOÀN BỘ dữ liệu từ cloud về máy này? Bản ghi trùng ID sẽ lấy bản mới hơn.")) return;
+  state.syncing=true; state.lastPullAt=0; await setMeta("lastPullAt", 0);
+  try{
+    const n=await syncPull();
+    toast(`Đã khôi phục/đồng bộ ${n} bản ghi từ cloud.`,"pos"); render();
+  }catch(e){ toast("Lỗi khôi phục: "+e.message,"neg"); }
+  finally{ state.syncing=false; }
 }
 
 /* =============================== router ================================= */
@@ -1325,9 +1453,18 @@ async function boot(){
   // and re-render when returning so day-scoped values (R, P/L ngày, mục tiêu)
   // refresh right away if the date rolled over while the app was backgrounded.
   window.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="hidden") syncNow(false);
-    else render();
+    if(document.visibilityState==="hidden"){
+      // flush local changes to cloud (push only — a pull here is pointless and
+      // the page may freeze mid-request before the flush completes)
+      const S=state.settings;
+      if(S.supabaseUrl && S.supabaseKey && !state.syncing){
+        state.syncing=true;
+        syncPush(syncHeaders(S)).catch(e=>console.warn("flush:",e.message)).finally(()=>{state.syncing=false;});
+      }
+    } else render();
   });
+  // pull-on-open: restore/merge from cloud, then push local changes (background)
+  syncNow(false);
 }
 boot();
 </script>
